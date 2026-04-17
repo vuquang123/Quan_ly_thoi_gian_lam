@@ -32,7 +32,7 @@ namespace FaceIDHRM.UI
             // Nút Nhân Viên
             Button btnNhanVien = new Button
             {
-                Text = "Dành Cho Nhân Viên (Chỉ chấm công)",
+                Text = "Dành Cho Nhân Viên",
                 Location = new Point(100, 100),
                 Size = new Size(300, 50),
                 BackColor = Color.LightGreen,
@@ -44,7 +44,7 @@ namespace FaceIDHRM.UI
             // Nút Admin
             Button btnAdmin = new Button
             {
-                Text = "Dành Cho Admin (Quản trị hệ thống)",
+                Text = "Dành Cho Admin",
                 Location = new Point(100, 180),
                 Size = new Size(300, 50),
                 BackColor = Color.LightBlue,
@@ -71,7 +71,7 @@ namespace FaceIDHRM.UI
                 Width = 400, Height = 180, FormBorderStyle = FormBorderStyle.FixedDialog, Text = "Nhập Mật Khẩu Admin", StartPosition = FormStartPosition.CenterParent
             })
             {
-                Label textLabel = new Label() { Left = 20, Top = 20, Text = "Mật khẩu Admin là: admin123" , Width=300};
+                Label textLabel = new Label() { Left = 20, Top = 20, Text = "Vui lòng nhập mật khẩu truy cập hệ thống:", Width=300 };
                 TextBox textBox = new TextBox() { Left = 20, Top = 50, Width = 340, UseSystemPasswordChar = true };
                 Button confirmation = new Button() { Text = "Xác nhận", Left = 260, Width = 100, Top = 90, DialogResult = DialogResult.OK };
                 confirmation.Click += (s, ev) => { prompt.Close(); };
@@ -82,7 +82,7 @@ namespace FaceIDHRM.UI
 
                 if (prompt.ShowDialog() == DialogResult.OK)
                 {
-                    if (textBox.Text == "admin123")
+                    if (textBox.Text == "QuangVD@08102005")
                     {
                         FormAdmin frmAdmin = new FormAdmin();
                         this.Hide();
