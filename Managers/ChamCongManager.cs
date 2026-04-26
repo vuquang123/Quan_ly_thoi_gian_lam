@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using FaceIDHRM.Integration;
 using FaceIDHRM.Models;
 
 namespace FaceIDHRM.Managers
@@ -8,17 +9,40 @@ namespace FaceIDHRM.Managers
     public class ChamCongManager : IQuanLy<NgayLamViec>
     {
         private List<NgayLamViec> _danhSachChamCong;
+        private bool _useServerSync;
+        private readonly IWorkforceGateway _workforceGateway;
         private const string FILE_NAME = "chamcong.json";
 
         public ChamCongManager()
         {
-            _danhSachChamCong = DataStorage.LoadData<NgayLamViec>(FILE_NAME);
-            if (_danhSachChamCong == null)
-                _danhSachChamCong = new List<NgayLamViec>();
+            _useServerSync = ServerConfig.UseServerSync;
+            _workforceGateway = new WorkforceGateway(ServerConfig.ApprovalServerUrl);
+
+            if (_useServerSync)
+            {
+                try
+                {
+                    _danhSachChamCong = TaiDuLieuTuServer();
+                }
+                catch
+                {
+                    _useServerSync = false;
+                    _danhSachChamCong = TaiDuLieuLocal();
+                }
+            }
+            else
+            {
+                _danhSachChamCong = TaiDuLieuLocal();
+            }
         }
 
         public void Them(NgayLamViec nlv)
         {
+            if (_useServerSync)
+            {
+                throw new InvalidOperationException("Thêm trực tiếp không được hỗ trợ ở chế độ đồng bộ server. Hãy dùng CheckIn hoặc XuLyQuetMatTuDong.");
+            }
+
             // Kiểm tra trùng mã NLV theo GUID là đủ
             if (_danhSachChamCong.Any(n => n.MaNLV == nlv.MaNLV))
             {
@@ -30,6 +54,11 @@ namespace FaceIDHRM.Managers
 
         public void Sua(NgayLamViec nlv)
         {
+            if (_useServerSync)
+            {
+                throw new InvalidOperationException("Sửa trực tiếp không được hỗ trợ ở chế độ đồng bộ server.");
+            }
+
             var existing = _danhSachChamCong.FirstOrDefault(n => n.MaNLV == nlv.MaNLV);
             if (existing != null)
             {
@@ -42,6 +71,11 @@ namespace FaceIDHRM.Managers
 
         public void Xoa(string maNLV)
         {
+            if (_useServerSync)
+            {
+                throw new InvalidOperationException("Xóa trực tiếp không được hỗ trợ ở chế độ đồng bộ server.");
+            }
+
             var nlv = _danhSachChamCong.FirstOrDefault(n => n.MaNLV == maNLV);
             if (nlv != null)
             {
@@ -62,6 +96,23 @@ namespace FaceIDHRM.Managers
 
         public NgayLamViec CheckIn(string maNV, DateTime? customTime = null)
         {
+            if (_useServerSync)
+            {
+                var result = Task.Run(() => _workforceGateway.CheckInAsync(new ManualCheckDto
+                {
+                    MaNV = maNV,
+                    Time = customTime ?? DateTime.Now
+                })).GetAwaiter().GetResult();
+
+                if (result == null)
+                {
+                    throw new Exception("Không thể check-in qua server.");
+                }
+
+                _danhSachChamCong = TaiDuLieuTuServer();
+                return ToModel(result);
+            }
+
             var timeToUse = customTime ?? DateTime.Now;
             var toDay = timeToUse.Date;
             var record = _danhSachChamCong.FirstOrDefault(n => n.MaNV == maNV && n.NgayChamCong.Date == toDay);
@@ -89,6 +140,23 @@ namespace FaceIDHRM.Managers
 
         public NgayLamViec CheckOut(string maNV, DateTime? customTime = null)
         {
+            if (_useServerSync)
+            {
+                var result = Task.Run(() => _workforceGateway.CheckOutAsync(new ManualCheckDto
+                {
+                    MaNV = maNV,
+                    Time = customTime ?? DateTime.Now
+                })).GetAwaiter().GetResult();
+
+                if (result == null)
+                {
+                    throw new Exception("Không thể check-out qua server.");
+                }
+
+                _danhSachChamCong = TaiDuLieuTuServer();
+                return ToModel(result);
+            }
+
             var timeToUse = customTime ?? DateTime.Now;
             var toDay = timeToUse.Date;
             var record = _danhSachChamCong.FirstOrDefault(n => n.MaNV == maNV && n.NgayChamCong.Date == toDay);
@@ -109,6 +177,23 @@ namespace FaceIDHRM.Managers
 
         public NgayLamViec XuLyQuetMatTuDong(string maNV, DateTime scanTime)
         {
+            if (_useServerSync)
+            {
+                var result = Task.Run(() => _workforceGateway.ScanAutoAsync(new ScanAttendanceDto
+                {
+                    MaNV = maNV,
+                    ScanTime = scanTime
+                })).GetAwaiter().GetResult();
+
+                if (result == null)
+                {
+                    throw new Exception("Không thể xử lý quét mặt tự động qua server.");
+                }
+
+                _danhSachChamCong = TaiDuLieuTuServer();
+                return ToModel(result);
+            }
+
             var toDay = scanTime.Date;
             var t = scanTime.TimeOfDay;
 
@@ -166,6 +251,30 @@ namespace FaceIDHRM.Managers
         private void LuuDuLieu()
         {
             DataStorage.SaveData(_danhSachChamCong, FILE_NAME);
+        }
+
+        private static List<NgayLamViec> TaiDuLieuLocal()
+        {
+            var data = DataStorage.LoadData<NgayLamViec>(FILE_NAME);
+            return data ?? new List<NgayLamViec>();
+        }
+
+        private List<NgayLamViec> TaiDuLieuTuServer()
+        {
+            var data = Task.Run(() => _workforceGateway.GetAttendanceAsync()).GetAwaiter().GetResult();
+            return data.Select(ToModel).ToList();
+        }
+
+        private static NgayLamViec ToModel(AttendanceRecordDto dto)
+        {
+            var nlv = new NgayLamViec(dto.MaNLV, dto.MaNV, dto.NgayChamCong)
+            {
+                GioCheckIn = dto.GioCheckIn,
+                GioCheckOut = dto.GioCheckOut,
+                TrangThai = dto.TrangThai,
+                TenCa = dto.TenCa
+            };
+            return nlv;
         }
     }
 }

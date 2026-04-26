@@ -9,7 +9,7 @@ namespace FaceIDHRM.Managers
     public static class DataStorage
     {
         private static readonly string DataFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
-        
+
         static DataStorage()
         {
             if (!Directory.Exists(DataFolder))
@@ -22,7 +22,7 @@ namespace FaceIDHRM.Managers
         {
             return new JsonSerializerSettings
             {
-                TypeNameHandling = TypeNameHandling.Auto, // Cho phép deserialize đa hình (Abstract Class)
+                TypeNameHandling = TypeNameHandling.Auto,
                 Formatting = Formatting.Indented
             };
         }
@@ -31,6 +31,7 @@ namespace FaceIDHRM.Managers
         {
             string path = Path.Combine(DataFolder, fileName);
             string json = JsonConvert.SerializeObject(data, GetSettings());
+
             File.WriteAllText(path, json);
         }
 
@@ -41,8 +42,17 @@ namespace FaceIDHRM.Managers
             {
                 return new List<T>();
             }
+
             string json = File.ReadAllText(path);
-            return JsonConvert.DeserializeObject<List<T>>(json, GetSettings()) ?? new List<T>();
+
+            try
+            {
+                return JsonConvert.DeserializeObject<List<T>>(json, GetSettings()) ?? new List<T>();
+            }
+            catch
+            {
+                return new List<T>();
+            }
         }
     }
 }

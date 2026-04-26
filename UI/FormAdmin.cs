@@ -1,7 +1,9 @@
 using System;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using FaceIDHRM.Integration;
 using FaceIDHRM.Managers;
 using FaceIDHRM.Models;
 using OpenCvSharp.Extensions;
@@ -13,6 +15,7 @@ namespace FaceIDHRM.UI
         private FaceIDManager _faceManager;
         private NhanSuManager _nhanSuManager;
         private ChamCongManager _chamCongManager;
+        private readonly IEarlyCheckoutGateway _approvalGateway;
         
         private PictureBox _cameraBox;
         private System.Windows.Forms.Timer _timer;
@@ -31,6 +34,9 @@ namespace FaceIDHRM.UI
         private TextBox txtManualCC, txtSearchChamCong;
         private Label lblManualNVName;
         private DateTimePicker dtpManualTime, dtpFilterFrom, dtpFilterTo;
+        private DataGridView dgvPendingApprovals;
+        private TextBox txtApprovalNote;
+        private Label lblApprovalStatus;
 
         // UI Controls cho Tab 3
         private DataGridView dgvBaoCao;
@@ -47,8 +53,16 @@ namespace FaceIDHRM.UI
             _faceManager = new FaceIDManager();
             _nhanSuManager = new NhanSuManager();
             _chamCongManager = new ChamCongManager();
+            _approvalGateway = new EarlyCheckoutGateway(ServerConfig.ApprovalServerUrl);
+            _approvalGateway.RequestUpdated += OnApprovalRequestUpdated;
 
             SetupUI();
+
+            this.Load += async (s, e) =>
+            {
+                await _approvalGateway.ConnectAsync();
+                await ReloadPendingApprovalsAsync();
+            };
         }
 
         private void SetupUI()
@@ -263,6 +277,41 @@ namespace FaceIDHRM.UI
             grpManual.Controls.Add(btnManualCheckout);
 
             tab.Controls.Add(grpManual);
+
+            GroupBox grpApproval = new GroupBox { Text = "Duyệt Checkout Sớm (Realtime)", Location = new Point(740, 325), Size = new Size(330, 275) };
+
+            dgvPendingApprovals = new DataGridView
+            {
+                Location = new Point(12, 25),
+                Size = new Size(305, 140),
+                AllowUserToAddRows = false,
+                ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                BackgroundColor = Color.White
+            };
+            dgvPendingApprovals.Columns.Add("RequestId", "RequestId");
+            dgvPendingApprovals.Columns.Add("MaNV", "Mã NV");
+            dgvPendingApprovals.Columns.Add("RequestedAt", "Yêu cầu lúc");
+            dgvPendingApprovals.Columns.Add("LyDo", "Lý do");
+            dgvPendingApprovals.Columns["RequestId"].Visible = false;
+            dgvPendingApprovals.Columns["LyDo"].Width = 130;
+            grpApproval.Controls.Add(dgvPendingApprovals);
+
+            txtApprovalNote = new TextBox { Location = new Point(12, 173), Size = new Size(305, 25), PlaceholderText = "Ghi chú duyệt/từ chối..." };
+            grpApproval.Controls.Add(txtApprovalNote);
+
+            Button btnApprove = new Button { Text = "Duyệt", Location = new Point(12, 206), Size = new Size(145, 35), BackColor = Color.LightGreen };
+            btnApprove.Click += async (s, e) => await ApproveSelectedRequestAsync();
+            grpApproval.Controls.Add(btnApprove);
+
+            Button btnReject = new Button { Text = "Từ Chối", Location = new Point(172, 206), Size = new Size(145, 35), BackColor = Color.LightCoral };
+            btnReject.Click += async (s, e) => await RejectSelectedRequestAsync();
+            grpApproval.Controls.Add(btnReject);
+
+            lblApprovalStatus = new Label { Text = "Sẵn sàng nhận yêu cầu.", Location = new Point(12, 247), Size = new Size(305, 20), ForeColor = Color.DarkBlue };
+            grpApproval.Controls.Add(lblApprovalStatus);
+
+            tab.Controls.Add(grpApproval);
         }
 
         private void BuildTabBaoCao(TabPage tab)
@@ -580,6 +629,107 @@ namespace FaceIDHRM.UI
             catch (Exception ex) { MessageBox.Show(ex.Message); }
         }
 
+        private async Task ReloadPendingApprovalsAsync()
+        {
+            try
+            {
+                var pending = await _approvalGateway.GetPendingAsync();
+                dgvPendingApprovals.Rows.Clear();
+
+                foreach (var request in pending)
+                {
+                    dgvPendingApprovals.Rows.Add(
+                        request.Id,
+                        request.MaNV,
+                        request.RequestedAt.ToString("dd/MM HH:mm"),
+                        request.LyDo);
+                }
+
+                lblApprovalStatus.Text = $"Đang chờ duyệt: {pending.Count} yêu cầu.";
+            }
+            catch (Exception ex)
+            {
+                lblApprovalStatus.Text = "Không tải được yêu cầu: " + ex.Message;
+                lblApprovalStatus.ForeColor = Color.Red;
+            }
+        }
+
+        private async Task ApproveSelectedRequestAsync()
+        {
+            if (dgvPendingApprovals.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Vui lòng chọn một yêu cầu cần duyệt.");
+                return;
+            }
+
+            var requestId = dgvPendingApprovals.SelectedRows[0].Cells["RequestId"].Value?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(requestId))
+            {
+                return;
+            }
+
+            var response = await _approvalGateway.ApproveAsync(requestId, new ResolveEarlyCheckoutRequestDto
+            {
+                AdminName = "Admin",
+                AdminNote = txtApprovalNote.Text,
+                CheckoutTime = DateTime.Now
+            });
+
+            if (response == null)
+            {
+                MessageBox.Show("Duyệt thất bại. Vui lòng thử lại.");
+                return;
+            }
+
+            lblApprovalStatus.Text = $"Đã duyệt yêu cầu của {response.MaNV}.";
+            lblApprovalStatus.ForeColor = Color.Green;
+            txtApprovalNote.Text = string.Empty;
+            await ReloadPendingApprovalsAsync();
+        }
+
+        private async Task RejectSelectedRequestAsync()
+        {
+            if (dgvPendingApprovals.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Vui lòng chọn một yêu cầu cần từ chối.");
+                return;
+            }
+
+            var requestId = dgvPendingApprovals.SelectedRows[0].Cells["RequestId"].Value?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(requestId))
+            {
+                return;
+            }
+
+            var response = await _approvalGateway.RejectAsync(requestId, new ResolveEarlyCheckoutRequestDto
+            {
+                AdminName = "Admin",
+                AdminNote = string.IsNullOrWhiteSpace(txtApprovalNote.Text) ? "Không đủ điều kiện checkout sớm." : txtApprovalNote.Text
+            });
+
+            if (response == null)
+            {
+                MessageBox.Show("Từ chối thất bại. Vui lòng thử lại.");
+                return;
+            }
+
+            lblApprovalStatus.Text = $"Đã từ chối yêu cầu của {response.MaNV}.";
+            lblApprovalStatus.ForeColor = Color.OrangeRed;
+            txtApprovalNote.Text = string.Empty;
+            await ReloadPendingApprovalsAsync();
+        }
+
+        private void OnApprovalRequestUpdated(EarlyCheckoutRequestDto request)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(async () => await ReloadPendingApprovalsAsync()));
+                return;
+            }
+
+            _ = ReloadPendingApprovalsAsync();
+        }
+
         private void BtnExportMatrix_Click(object? sender, EventArgs e)
         {
             using (SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV Files|*.csv", FileName = "BangChamCong_Matrix.csv" })
@@ -885,6 +1035,7 @@ namespace FaceIDHRM.UI
         private void FormAdmin_FormClosing(object? sender, FormClosingEventArgs e)
         {
             _timer?.Stop();
+            _approvalGateway.RequestUpdated -= OnApprovalRequestUpdated;
             _faceManager?.TatCamera();
         }
     }
