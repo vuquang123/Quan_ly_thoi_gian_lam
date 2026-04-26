@@ -139,6 +139,17 @@ namespace FaceIDHRM.Server.Services.Workforce
                 return openRecord;
             }
 
+            var completedRecord = all.FirstOrDefault(n =>
+                n.MaNV == maNV &&
+                n.NgayChamCong.Date == date &&
+                n.GioCheckIn.HasValue &&
+                n.GioCheckOut.HasValue);
+
+            if (completedRecord != null)
+            {
+                throw new Exception("Bạn đã hoàn thành ca làm việc và check-out trong ngày hôm nay rồi!");
+            }
+
             var tenCa = "Ca Mặc Định";
             if (t < new TimeSpan(12, 30, 0)) tenCa = "Ca 1";
             else if (t < new TimeSpan(16, 30, 0)) tenCa = "Ca 2";

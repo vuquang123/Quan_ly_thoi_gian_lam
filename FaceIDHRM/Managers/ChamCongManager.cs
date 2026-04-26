@@ -244,6 +244,12 @@ namespace FaceIDHRM.Managers
                 return openRecord;
             }
 
+            var completedRecord = _danhSachChamCong.FirstOrDefault(n => n.MaNV == maNV && n.NgayChamCong.Date == toDay && n.GioCheckIn.HasValue && n.GioCheckOut.HasValue);
+            if (completedRecord != null)
+            {
+                throw new Exception("Bạn đã hoàn thành ca làm việc và check-out trong ngày hôm nay rồi!");
+            }
+
             // Hành động: Khởi tạo Check-in 1 ca mới theo phân định ranh giới
             string tenCa = "Ca Mặc Định";
             if (t < new TimeSpan(12, 30, 0)) tenCa = "Ca 1";
