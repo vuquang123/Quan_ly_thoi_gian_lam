@@ -438,8 +438,32 @@ namespace FaceIDHRM.UI
                 
                 _tempFaceMat?.Dispose();
                 _tempFaceMat = new OpenCvSharp.Mat(frame, faces[0]);
-                lblStatus.Text = "Đã lấy ảnh FaceID thành công. Trạng thái tạm thời, bấm 'Cập Nhật' hoặc 'Thêm Mới' để Lưu.";
-                lblStatus.ForeColor = Color.Orange;
+
+                using var bmp = BitmapConverter.ToBitmap(_tempFaceMat);
+                using var previewForm = new Form { Text = "Xác nhận khuôn mặt", Size = new Size(300, 350), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false };
+                var pic = new PictureBox { Image = bmp, SizeMode = PictureBoxSizeMode.Zoom, Dock = DockStyle.Top, Height = 220 };
+                previewForm.Controls.Add(pic);
+                var lbl = new Label { Text = "Ảnh chụp đã đủ rõ nét chưa?", Dock = DockStyle.Top, TextAlign = ContentAlignment.MiddleCenter, Height = 40, Font = new Font("Arial", 10, FontStyle.Bold) };
+                previewForm.Controls.Add(lbl);
+                var pnlBtn = new Panel { Dock = DockStyle.Bottom, Height = 50 };
+                var btnOk = new Button { Text = "Chuẩn rồi", DialogResult = DialogResult.OK, Location = new Point(35, 10), Size = new Size(100, 30), BackColor = Color.LightGreen, Font = new Font("Arial", 9, FontStyle.Bold) };
+                var btnRetry = new Button { Text = "Chụp lại", DialogResult = DialogResult.Cancel, Location = new Point(145, 10), Size = new Size(100, 30), BackColor = Color.LightCoral, Font = new Font("Arial", 9, FontStyle.Bold) };
+                pnlBtn.Controls.Add(btnOk);
+                pnlBtn.Controls.Add(btnRetry);
+                previewForm.Controls.Add(pnlBtn);
+
+                if (previewForm.ShowDialog(this) == DialogResult.OK)
+                {
+                    lblStatus.Text = "Đã lấy ảnh FaceID thành công. Trạng thái tạm thời, bấm 'Cập Nhật' hoặc 'Thêm Mới' để Lưu.";
+                    lblStatus.ForeColor = Color.Orange;
+                }
+                else
+                {
+                    _tempFaceMat.Dispose();
+                    _tempFaceMat = null;
+                    lblStatus.Text = "Đã hủy ảnh vừa chụp.";
+                    lblStatus.ForeColor = Color.Red;
+                }
             }
         }
 
