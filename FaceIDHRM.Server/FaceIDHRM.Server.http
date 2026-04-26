@@ -1,0 +1,6 @@
+@FaceIDHRM.Server_HostAddress = http://localhost:5232
+
+GET {{FaceIDHRM.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
