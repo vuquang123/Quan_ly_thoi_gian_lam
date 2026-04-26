@@ -99,11 +99,6 @@ namespace FaceIDHRM.Server.Services.Workforce
             {
                 var startCa = openRecord.TenCa;
 
-                if (startCa.Contains("Ca 3") && t < new TimeSpan(21, 0, 0))
-                {
-                    throw new Exception("Vui lòng Check-out sau 21h00!");
-                }
-
                 if (startCa.Contains("Ca 2") && t < new TimeSpan(17, 0, 0))
                 {
                     throw new Exception("Vui lòng Check-out sau 17h00!");
@@ -117,22 +112,16 @@ namespace FaceIDHRM.Server.Services.Workforce
                 openRecord.GioCheckOut = t;
 
                 var currentCa = openRecord.TenCa;
-                if (t >= new TimeSpan(21, 0, 0))
-                {
-                    currentCa = "Ca 3";
-                }
-                else if (t >= new TimeSpan(15, 0, 0))
+                if (t >= new TimeSpan(13, 0, 0))
                 {
                     currentCa = "Ca 2";
                 }
-                else if (t >= new TimeSpan(13, 0, 0))
+                else
                 {
                     currentCa = "Ca 1";
                 }
 
                 if (startCa == "Ca 1" && currentCa == "Ca 2") openRecord.TenCa = "Ca 1, 2";
-                else if (startCa == "Ca 1" && currentCa == "Ca 3") openRecord.TenCa = "Ca 1, 2, 3";
-                else if (startCa == "Ca 2" && currentCa == "Ca 3") openRecord.TenCa = "Ca 2, 3";
 
                 XacDinhTrangThai(openRecord);
                 _attendanceRepository.Save(openRecord);
@@ -152,8 +141,7 @@ namespace FaceIDHRM.Server.Services.Workforce
 
             var tenCa = "Ca Mặc Định";
             if (t < new TimeSpan(12, 30, 0)) tenCa = "Ca 1";
-            else if (t < new TimeSpan(16, 30, 0)) tenCa = "Ca 2";
-            else tenCa = "Ca 3";
+            else tenCa = "Ca 2";
 
             var newRecord = new AttendanceRecord
             {
@@ -182,10 +170,8 @@ namespace FaceIDHRM.Server.Services.Workforce
 
             if (record.TenCa.Contains("Ca 1")) gioVaoChuan = new TimeSpan(8, 0, 0);
             else if (record.TenCa.Contains("Ca 2")) gioVaoChuan = new TimeSpan(13, 0, 0);
-            else if (record.TenCa.Contains("Ca 3")) gioVaoChuan = new TimeSpan(17, 0, 0);
 
-            if (record.TenCa.Contains("Ca 3")) gioRaChuan = new TimeSpan(21, 30, 0);
-            else if (record.TenCa.Contains("Ca 2")) gioRaChuan = new TimeSpan(17, 0, 0);
+            if (record.TenCa.Contains("Ca 2")) gioRaChuan = new TimeSpan(17, 0, 0);
             else if (record.TenCa.Contains("Ca 1")) gioRaChuan = new TimeSpan(13, 0, 0);
 
             if (record.GioCheckIn.Value > gioVaoChuan)

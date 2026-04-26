@@ -217,8 +217,6 @@ namespace FaceIDHRM.Managers
                 string startCa = openRecord.TenCa;
 
                 // Ràng buộc: Ngăn chặn Check-out sớm trước giờ quy định của ca
-                if (startCa.Contains("Ca 3") && t < new TimeSpan(21, 0, 0))
-                    throw new Exception("Vui lòng Check-out sau 21h00!");
                 if (startCa.Contains("Ca 2") && t < new TimeSpan(17, 0, 0))
                     throw new Exception("Vui lòng Check-out sau 17h00!");
                 if (startCa.Contains("Ca 1") && t < new TimeSpan(13, 0, 0))
@@ -230,14 +228,12 @@ namespace FaceIDHRM.Managers
                 // Nối tên ca dựa vào thời điểm checkout theo đúng mốc chuẩn
                 string currentCa = openRecord.TenCa;
                 
-                // Trọng số từ cao xuống thấp để lấy ca cuối cùng nhân viên chạm tới
-                if (t >= new TimeSpan(21, 0, 0)) currentCa = "Ca 3";
-                else if (t >= new TimeSpan(15, 0, 0)) currentCa = "Ca 2"; // Mốc sau 15h cho Ca 2 như bạn chỉ định
-                else if (t >= new TimeSpan(13, 0, 0)) currentCa = "Ca 1";
+                if (t >= new TimeSpan(13, 0, 0))
+                    currentCa = "Ca 2";
+                else 
+                    currentCa = "Ca 1";
 
                 if (startCa == "Ca 1" && currentCa == "Ca 2") openRecord.TenCa = "Ca 1, 2";
-                else if (startCa == "Ca 1" && currentCa == "Ca 3") openRecord.TenCa = "Ca 1, 2, 3";
-                else if (startCa == "Ca 2" && currentCa == "Ca 3") openRecord.TenCa = "Ca 2, 3";
 
                 openRecord.XacDinhTrangThai();
                 LuuDuLieu();
@@ -253,8 +249,7 @@ namespace FaceIDHRM.Managers
             // Hành động: Khởi tạo Check-in 1 ca mới theo phân định ranh giới
             string tenCa = "Ca Mặc Định";
             if (t < new TimeSpan(12, 30, 0)) tenCa = "Ca 1";
-            else if (t >= new TimeSpan(12, 30, 0) && t < new TimeSpan(16, 30, 0)) tenCa = "Ca 2";
-            else tenCa = "Ca 3";
+            else tenCa = "Ca 2";
 
             var newRecord = new NgayLamViec(Guid.NewGuid().ToString(), maNV, toDay)
             {
