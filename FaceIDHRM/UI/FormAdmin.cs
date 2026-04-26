@@ -807,6 +807,8 @@ namespace FaceIDHRM.UI
             int selMonth = selectedIndex == 0 ? 0 : selectedIndex;
             int selYear = DateTime.Now.Year;
 
+            Task.Run(() => _chamCongManager.LamMoiDuLieu()).GetAwaiter().GetResult();
+
             var dsCC = _chamCongManager.LayDanhSach();
             var dsNV = _nhanSuManager.LayDanhSach();
 
@@ -883,6 +885,10 @@ namespace FaceIDHRM.UI
             var keyword = txtSearchChamCong?.Text.ToLower() ?? "";
             var from = dtpFilterFrom?.Value.Date ?? DateTime.MinValue;
             var to = dtpFilterTo?.Value.Date.AddDays(1).AddSeconds(-1) ?? DateTime.MaxValue;
+
+            // Kéo dữ liệu mới nhất từ Server về trước khi hiển thị
+            Task.Run(() => _chamCongManager.LamMoiDuLieu()).GetAwaiter().GetResult();
+            
             var dsNV = _nhanSuManager.LayDanhSach();
 
             var logs = _chamCongManager.LayDanhSach()

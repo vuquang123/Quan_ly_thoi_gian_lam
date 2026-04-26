@@ -94,6 +94,18 @@ namespace FaceIDHRM.Managers
             return _danhSachChamCong;
         }
 
+        public void LamMoiDuLieu()
+        {
+            if (_useServerSync)
+            {
+                try
+                {
+                    _danhSachChamCong = TaiDuLieuTuServer();
+                }
+                catch { }
+            }
+        }
+
         public NgayLamViec CheckIn(string maNV, DateTime? customTime = null)
         {
             if (_useServerSync)
