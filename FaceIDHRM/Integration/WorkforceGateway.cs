@@ -17,6 +17,7 @@ namespace FaceIDHRM.Integration
                 BaseAddress = new Uri(baseUrl.TrimEnd('/')),
                 Timeout = TimeSpan.FromSeconds(4)
             };
+            _httpClient.DefaultRequestHeaders.Add("ngrok-skip-browser-warning", "true");
         }
 
         public async Task<List<EmployeeRecordDto>> GetEmployeesAsync()

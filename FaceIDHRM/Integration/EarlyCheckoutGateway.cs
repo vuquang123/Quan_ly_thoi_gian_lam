@@ -23,9 +23,13 @@ namespace FaceIDHRM.Integration
                 BaseAddress = new Uri(_baseUrl),
                 Timeout = TimeSpan.FromSeconds(4)
             };
+            _httpClient.DefaultRequestHeaders.Add("ngrok-skip-browser-warning", "true");
 
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl($"{_baseUrl}/hubs/early-checkout")
+                .WithUrl($"{_baseUrl}/hubs/early-checkout", options => 
+                {
+                    options.Headers["ngrok-skip-browser-warning"] = "true";
+                })
                 .WithAutomaticReconnect()
                 .Build();
 
