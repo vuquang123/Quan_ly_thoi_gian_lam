@@ -31,7 +31,7 @@ namespace FaceIDHRM.Managers
                 }
                 catch
                 {
-                    _useServerSync = false;
+                    // Lỗi mạng tạm thời, vẫn nạp local nhưng không tắt ServerSync để lần sau còn lấy được
                     _danhSachNhanVien = TaiDuLieuLocal();
                 }
             }
@@ -130,6 +130,18 @@ namespace FaceIDHRM.Managers
         public List<NhanVien> LayDanhSach()
         {
             return _danhSachNhanVien;
+        }
+
+        public void LamMoiDuLieu()
+        {
+            if (_useServerSync)
+            {
+                try
+                {
+                    _danhSachNhanVien = TaiDuLieuTuServer();
+                }
+                catch { }
+            }
         }
 
         private void LuuDuLieu()

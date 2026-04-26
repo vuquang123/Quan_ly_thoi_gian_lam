@@ -26,7 +26,7 @@ namespace FaceIDHRM.Managers
                 }
                 catch
                 {
-                    _useServerSync = false;
+                    // Lỗi mạng tạm thời, vẫn nạp local nhưng không tắt ServerSync để lần sau còn lấy được
                     _danhSachChamCong = TaiDuLieuLocal();
                 }
             }

@@ -176,6 +176,12 @@ namespace FaceIDHRM.UI
         {
             _lblClock.Text = DateTime.Now.ToString("HH:mm:ss");
 
+            // Cập nhật ngầm danh sách nhân sự từ Server mỗi 15 giây để Kiosk luôn nhận dạng được người mới thêm từ Admin
+            if (DateTime.Now.Second % 15 == 0)
+            {
+                Task.Run(() => _nhanSuManager.LamMoiDuLieu());
+            }
+
             // Reset UI nếu đã hết Cooldown
             if (_trangThai != KioskState.ChoDuyetCheckoutSom && DateTime.Now >= _cooldownUntil && _lblStatus.ForeColor != Color.Gray)
             {
@@ -441,6 +447,10 @@ namespace FaceIDHRM.UI
                 if (prompt.ShowDialog() == DialogResult.OK)
                 {
                     string maNV = textBox.Text.Trim();
+                    
+                    // Gọi API kéo dữ liệu mới nhất về ngay lập tức để chắc chắn không bị miss NV do Admin vừa thêm
+                    _nhanSuManager.LamMoiDuLieu();
+
                     var nhanVien = _nhanSuManager.TimKiem(maNV);
                     if (nhanVien == null)
                     {
