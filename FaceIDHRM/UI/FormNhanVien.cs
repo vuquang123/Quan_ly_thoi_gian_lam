@@ -287,7 +287,20 @@ namespace FaceIDHRM.UI
                 var nhanVien = _nhanSuManager.TimKiem(recognizedID);
                 if (nhanVien != null)
                 {
-                    ExecuteChamCongLogic(recognizedID);
+                    // Tạm dừng scan để chờ người dùng xác nhận
+                    _cooldownUntil = DateTime.Now.AddMinutes(2); 
+
+                    var confirm = MessageBox.Show(this, $"Nhận diện thành công: {nhanVien.HoTen}.\nBạn có muốn XÁC NHẬN chấm công ngay bây giờ không?", "Xác nhận chấm công", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    
+                    if (confirm == DialogResult.Yes)
+                    {
+                        ExecuteChamCongLogic(recognizedID);
+                    }
+                    else
+                    {
+                        ShowResult("❌ Đã hủy thao tác chấm công.", Color.Orange, Color.MistyRose);
+                        _cooldownUntil = DateTime.Now.AddSeconds(3); // Cooldown lại 3 giây trước khi scan người tiếp theo
+                    }
                 }
             }
             else
@@ -333,18 +346,27 @@ namespace FaceIDHRM.UI
             {
                 if (ex.Message.Contains("Vui lòng Check-out sau"))
                 {
-                    var request = TaoYeuCauCheckoutSom(recognizedID);
-                    if (request != null)
+                    var confirmEarly = MessageBox.Show(this, $"Chưa đến giờ tan làm!\nBạn có chắc chắn muốn gửi YÊU CẦU XIN VỀ SỚM cho Admin không?", "Xác nhận về sớm", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (confirmEarly == DialogResult.Yes)
                     {
-                        _pendingApprovalRequestId = request.Id;
-                        _trangThai = KioskState.ChoDuyetCheckoutSom;
-                        ShowResult("🕒 Đã gửi yêu cầu checkout sớm. Đang chờ admin duyệt...", Color.DarkBlue, Color.Khaki);
-                        _cooldownUntil = DateTime.Now.AddMinutes(10);
-                        return;
-                    }
+                        var request = TaoYeuCauCheckoutSom(recognizedID);
+                        if (request != null)
+                        {
+                            _pendingApprovalRequestId = request.Id;
+                            _trangThai = KioskState.ChoDuyetCheckoutSom;
+                            ShowResult("🕒 Đã gửi yêu cầu checkout sớm. Đang chờ admin duyệt...", Color.DarkBlue, Color.Khaki);
+                            _cooldownUntil = DateTime.Now.AddMinutes(10);
+                            return;
+                        }
 
-                    ShowResult("❌ Không kết nối được máy duyệt admin. Vui lòng báo quản trị viên.", Color.Red, Color.MistyRose);
-                    _cooldownUntil = DateTime.Now.AddSeconds(5);
+                        ShowResult("❌ Không kết nối được máy duyệt admin. Vui lòng báo quản trị viên.", Color.Red, Color.MistyRose);
+                        _cooldownUntil = DateTime.Now.AddSeconds(5);
+                    }
+                    else
+                    {
+                        ShowResult("❌ Đã hủy xin về sớm. Vui lòng quay lại làm việc.", Color.Orange, Color.MistyRose);
+                        _cooldownUntil = DateTime.Now.AddSeconds(3);
+                    }
                     return;
                 }
 
