@@ -144,16 +144,23 @@ namespace FaceIDHRM.Managers
                     using Mat scaledSaved = new Mat();
                     Cv2.Resize(savedImage, scaledSaved, new OpenCvSharp.Size((int)(grayFace.Width * scale), (int)(grayFace.Height * scale)));
 
-                    using Mat template = new Mat();
                     using Mat target = new Mat();
+                    grayFace.CopyTo(target);
 
-                    if (scale <= 1.0) {
-                        scaledSaved.CopyTo(template);
-                        grayFace.CopyTo(target);
-                    } else {
-                        grayFace.CopyTo(template);
-                        scaledSaved.CopyTo(target);
-                    }
+                    // Cắt lấy 80% diện tích ở giữa làm template để nó có thể trượt (slide) bên trong target
+                    // Điều này giúp thuật toán nhận diện được ngay cả khi mặt bị lệch tọa độ (translation) một chút
+                    int cropW = (int)(scaledSaved.Width * 0.8);
+                    int cropH = (int)(scaledSaved.Height * 0.8);
+                    if (cropW <= 0 || cropH <= 0) continue;
+
+                    int cropX = (scaledSaved.Width - cropW) / 2;
+                    int cropY = (scaledSaved.Height - cropH) / 2;
+                    Rect cropRect = new Rect(cropX, cropY, cropW, cropH);
+                    
+                    using Mat template = new Mat(scaledSaved, cropRect);
+
+                    // Đảm bảo template phải nhỏ hơn hoặc bằng target
+                    if (template.Width > target.Width || template.Height > target.Height) continue;
 
                     using Mat result = new Mat();
                     Cv2.MatchTemplate(target, template, result, TemplateMatchModes.CCoeffNormed);
@@ -164,7 +171,8 @@ namespace FaceIDHRM.Managers
 
                 Console.WriteLine($"[DEBUG OpenCV] So sánh với {nv.MaNV} -> Sai số Multi-Scale: {bestMatchForThisNv:F3}");
 
-                if (bestMatchForThisNv > maxCorrelation && bestMatchForThisNv > 0.60) 
+                // Hạ threshold xuống 0.45 vì đã cắt template nhỏ lại, điểm CCoeffNormed sẽ giảm một chút nhưng chống nhiễu tốt hơn
+                if (bestMatchForThisNv > maxCorrelation && bestMatchForThisNv > 0.45) 
                 {
                     maxCorrelation = bestMatchForThisNv;
                     foundMaNV = nv.MaNV;
