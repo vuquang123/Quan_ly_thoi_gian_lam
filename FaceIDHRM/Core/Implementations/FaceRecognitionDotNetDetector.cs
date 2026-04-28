@@ -8,28 +8,41 @@ namespace FaceIDHRM.Core.Implementations
 {
     public class FaceRecognitionDotNetDetector : IFaceDetector
     {
-        private CascadeClassifier _faceDetector;
+        private CascadeClassifier _frontalDetector;
+        private CascadeClassifier _profileDetector;
 
         public FaceRecognitionDotNetDetector()
         {
-            string sourceCascadePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "haarcascade_frontalface_default.xml");
-            string tempCascadePath = Path.Combine(Path.GetTempPath(), "haarcascade_frontalface_default.xml");
+            string frontalPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "haarcascade_frontalface_default.xml");
+            string profilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "haarcascade_profileface.xml");
             
-            if (File.Exists(sourceCascadePath))
-            {
-                File.Copy(sourceCascadePath, tempCascadePath, true);
-                _faceDetector = new CascadeClassifier(tempCascadePath);
-            }
+            if (File.Exists(frontalPath))
+                _frontalDetector = new CascadeClassifier(frontalPath);
+            if (File.Exists(profilePath))
+                _profileDetector = new CascadeClassifier(profilePath);
         }
 
         public IEnumerable<Rect> DetectFaces(Mat frame)
         {
-            if (_faceDetector != null && !frame.Empty())
+            if (frame == null || frame.Empty()) return new Rect[0];
+
+            using Mat gray = new Mat();
+            Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
+
+            // 1. Thử Frontal Face (Mặt thẳng)
+            if (_frontalDetector != null && !_frontalDetector.Empty())
             {
-                Mat gray = new Mat();
-                Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
-                return _faceDetector.DetectMultiScale(gray, 1.1, 4);
+                var frontalFaces = _frontalDetector.DetectMultiScale(gray, 1.1, 3);
+                if (frontalFaces.Length > 0) return frontalFaces;
             }
+
+            // 2. Fallback Thử Profile Face (Mặt nghiêng)
+            if (_profileDetector != null && !_profileDetector.Empty())
+            {
+                var profileFaces = _profileDetector.DetectMultiScale(gray, 1.1, 3);
+                if (profileFaces.Length > 0) return profileFaces;
+            }
+
             return new Rect[0];
         }
     }
