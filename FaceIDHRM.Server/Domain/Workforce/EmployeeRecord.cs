@@ -14,9 +14,9 @@ namespace FaceIDHRM.Server.Domain.Workforce
         public string PhongBan { get; set; } = string.Empty;
         [System.Text.Json.Serialization.JsonIgnore]
         [Newtonsoft.Json.JsonIgnore]
-        public double[] FaceEncoding { get; set; } = null;
+        public double[]? FaceEncoding { get; set; } = null;
 
-        public string FaceEncodingBase64
+        public string? FaceEncodingBase64
         {
             get
             {

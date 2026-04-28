@@ -31,7 +31,14 @@ namespace FaceIDHRM.Integration
             var response = await _httpClient.PostAsJsonAsync("/api/employees", employee);
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                var message = await response.Content.ReadAsStringAsync();
+                message = message?.Trim();
+                if (string.IsNullOrEmpty(message))
+                {
+                    message = $"HTTP {(int)response.StatusCode} ({response.StatusCode})";
+                }
+
+                throw new Exception($"Luu nhan vien that bai: {message}");
             }
 
             return await response.Content.ReadFromJsonAsync<EmployeeRecordDto>();

@@ -1041,7 +1041,17 @@ namespace FaceIDHRM.UI
                 {
                     try
                     {
-                        string[] lines = System.IO.File.ReadAllLines(ofd.FileName);
+                        List<string> linesList = new List<string>();
+                        using (var fs = new System.IO.FileStream(ofd.FileName, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite))
+                        using (var sr = new System.IO.StreamReader(fs, System.Text.Encoding.UTF8))
+                        {
+                            string? line;
+                            while ((line = sr.ReadLine()) != null)
+                            {
+                                linesList.Add(line);
+                            }
+                        }
+                        string[] lines = linesList.ToArray();
                         int count = 0;
                         for (int i = 1; i < lines.Length; i++)
                         {

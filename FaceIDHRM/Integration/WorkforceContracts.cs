@@ -20,9 +20,9 @@ namespace FaceIDHRM.Integration
         public string ChucVu { get; set; } = string.Empty;
         public string PhongBan { get; set; } = string.Empty;
         [System.Text.Json.Serialization.JsonIgnore]
-        public double[] FaceEncoding { get; set; } = null;
+        public double[]? FaceEncoding { get; set; } = null;
 
-        public string FaceEncodingBase64
+        public string? FaceEncodingBase64
         {
             get
             {

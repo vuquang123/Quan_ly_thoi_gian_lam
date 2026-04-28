@@ -17,9 +17,9 @@ namespace FaceIDHRM.Models
         public double LuongCoBan { get; set; }
         [System.Text.Json.Serialization.JsonIgnore]
         [Newtonsoft.Json.JsonIgnore]
-        public double[] FaceEncoding { get; set; } // Vector khuôn mặt
+        public double[]? FaceEncoding { get; set; } // Vector khuôn mặt
 
-        public string FaceEncodingBase64
+        public string? FaceEncodingBase64
         {
             get
             {
