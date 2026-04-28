@@ -57,19 +57,19 @@ namespace FaceIDHRM.Core
             using Mat gray = new Mat();
             Cv2.CvtColor(faceImage, gray, ColorConversionCodes.BGR2GRAY);
             
-            var eyes = _eyeCascade.DetectMultiScale(gray, 1.1, 3, HaarDetectionTypes.ScaleImage, new Size(20, 20));
+            var eyes = _eyeCascade.DetectMultiScale(gray, 1.1, 3, HaarDetectionTypes.ScaleImage, new OpenCvSharp.Size(20, 20));
             
             if (eyes.Length >= 2)
             {
                 var sortedEyes = eyes.OrderBy(e => e.X).ToArray();
-                Point leftEye = new Point(sortedEyes[0].X + sortedEyes[0].Width / 2, sortedEyes[0].Y + sortedEyes[0].Height / 2);
-                Point rightEye = new Point(sortedEyes[1].X + sortedEyes[1].Width / 2, sortedEyes[1].Y + sortedEyes[1].Height / 2);
+                OpenCvSharp.Point leftEye = new OpenCvSharp.Point(sortedEyes[0].X + sortedEyes[0].Width / 2, sortedEyes[0].Y + sortedEyes[0].Height / 2);
+                OpenCvSharp.Point rightEye = new OpenCvSharp.Point(sortedEyes[1].X + sortedEyes[1].Width / 2, sortedEyes[1].Y + sortedEyes[1].Height / 2);
                 
                 double dY = rightEye.Y - leftEye.Y;
                 double dX = rightEye.X - leftEye.X;
                 double angle = Math.Atan2(dY, dX) * 180.0 / Math.PI;
 
-                Point2f center = new Point2f((leftEye.X + rightEye.X) / 2f, (leftEye.Y + rightEye.Y) / 2f);
+                OpenCvSharp.Point2f center = new OpenCvSharp.Point2f((leftEye.X + rightEye.X) / 2f, (leftEye.Y + rightEye.Y) / 2f);
 
                 using Mat rotMatrix = Cv2.GetRotationMatrix2D(center, angle, 1.0);
                 Mat alignedFace = new Mat();
