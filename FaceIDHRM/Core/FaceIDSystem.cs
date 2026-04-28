@@ -58,9 +58,28 @@ namespace FaceIDHRM.Core
             {
                 if (user.FaceEncoding != null && user.FaceEncoding.Length > 0)
                 {
-                    if (_recognizer.Compare(user.FaceEncoding, currentEncoding, 0.70))
+                    if (user.FaceEncoding.Length == 30000)
                     {
-                        return user.MaNV;
+                        double[] pose1 = new double[10000];
+                        double[] pose2 = new double[10000];
+                        double[] pose3 = new double[10000];
+                        Array.Copy(user.FaceEncoding, 0, pose1, 0, 10000);
+                        Array.Copy(user.FaceEncoding, 10000, pose2, 0, 10000);
+                        Array.Copy(user.FaceEncoding, 20000, pose3, 0, 10000);
+
+                        if (_recognizer.Compare(pose1, currentEncoding, 0.70) ||
+                            _recognizer.Compare(pose2, currentEncoding, 0.70) ||
+                            _recognizer.Compare(pose3, currentEncoding, 0.70))
+                        {
+                            return user.MaNV;
+                        }
+                    }
+                    else
+                    {
+                        if (_recognizer.Compare(user.FaceEncoding, currentEncoding, 0.70))
+                        {
+                            return user.MaNV;
+                        }
                     }
                 }
             }

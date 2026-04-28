@@ -25,7 +25,7 @@ namespace FaceIDHRM.UI
         
         // Multi-step enrollment logic
         private int _enrollmentStep = -1; // -1: không phải chế độ đăng ký
-        private double[] _avgEncoding = new double[10000];
+        private double[] _avgEncoding = new double[30000];
         private DateTime _thoiGianDemNguocDangKy;
         private double[] _tempFaceEncoding = null;
 
@@ -460,10 +460,7 @@ namespace FaceIDHRM.UI
                                 else
                                 {
                                     double[] vec = _faceManager.GetEncoding(croppedFace);
-                                    if (_enrollmentStep == 0)
-                                    {
-                                        for (int i = 0; i < 10000; i++) _avgEncoding[i] = vec[i];
-                                    }
+                                    Array.Copy(vec, 0, _avgEncoding, _enrollmentStep * 10000, 10000);
 
                                     _enrollmentStep++;
                                     if (_enrollmentStep < 3)

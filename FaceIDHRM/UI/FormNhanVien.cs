@@ -33,7 +33,7 @@ namespace FaceIDHRM.UI
         private string _idTamThoi = null;
         private DateTime _thoiGianDemNguocDangKy;
         private int _enrollmentStep = 0;
-        private double[] _avgEncoding = new double[10000];
+        private double[] _avgEncoding = new double[30000];
         private string _pendingApprovalRequestId = string.Empty;
         private Image[] _capturedImages = new Image[3];
 
@@ -243,10 +243,7 @@ namespace FaceIDHRM.UI
                             try
                             {
                                 double[] vec = _faceManager.GetEncoding(croppedFace);
-                                if (_enrollmentStep == 0)
-                                {
-                                    for (int i = 0; i < 10000; i++) _avgEncoding[i] = vec[i];
-                                }
+                                Array.Copy(vec, 0, _avgEncoding, _enrollmentStep * 10000, 10000);
 
                                 _capturedImages[_enrollmentStep] = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(croppedFace);
                                 _enrollmentStep++;
