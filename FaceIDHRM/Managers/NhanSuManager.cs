@@ -229,6 +229,16 @@ namespace FaceIDHRM.Managers
 
             nv.PhongBan = dto.PhongBan;
             nv.FaceEncoding = dto.FaceEncoding;
+            if (nv.FaceEncoding == null && !string.IsNullOrEmpty(dto.FaceEncodingBase64))
+            {
+                try
+                {
+                    var bytes = Convert.FromBase64String(dto.FaceEncodingBase64);
+                    nv.FaceEncoding = new double[bytes.Length / 8];
+                    Buffer.BlockCopy(bytes, 0, nv.FaceEncoding, 0, bytes.Length);
+                }
+                catch { }
+            }
             return nv;
         }
     }

@@ -481,8 +481,13 @@ namespace FaceIDHRM.UI
                             catch (Exception ex)
                             {
                                 lblStatus.Text = "Lỗi khi lấy ảnh: " + ex.Message;
-                                _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(2);
+                                _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
                             }
+                        }
+                        else
+                        {
+                            lblStatus.Text = "❌ Không phát hiện khuôn mặt rõ diện. Thử lại sau 3s...";
+                            _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
                         }
                     }
                 }

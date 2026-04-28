@@ -58,7 +58,7 @@ namespace FaceIDHRM.Core
             {
                 if (user.FaceEncoding != null && user.FaceEncoding.Length > 0)
                 {
-                    if (_recognizer.Compare(user.FaceEncoding, currentEncoding, 0.45))
+                    if (_recognizer.Compare(user.FaceEncoding, currentEncoding, 0.80))
                     {
                         return user.MaNV;
                     }

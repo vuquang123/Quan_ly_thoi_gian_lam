@@ -268,17 +268,20 @@ namespace FaceIDHRM.UI
                             {
                                 ShowResult("❌ Lỗi khi lấy ảnh: " + ex.Message, Color.Red, Color.MistyRose);
                                 _cooldownUntil = DateTime.Now.AddSeconds(2);
+                                _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
                             }
                         }
                         else if (faces.Length > 1)
                         {
                             ShowResult("❌ Quá nhiều khuôn mặt trong khung hình! Vui lòng đứng 1 mình.", Color.Red, Color.MistyRose);
                             _cooldownUntil = DateTime.Now.AddSeconds(3);
+                            _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
                         }
                         else
                         {
                             ShowResult("❌ Không tìm thấy khuôn mặt rõ diện! Hãy thử lại sau.", Color.Red, Color.MistyRose);
                             _cooldownUntil = DateTime.Now.AddSeconds(3);
+                            _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
                         }
                         
                         // Nếu có lỗi (chưa chuyển trạng thái thành công) thì ta không reset trạng thái để nó tự bắt lại ảnh sau khi cooldown
