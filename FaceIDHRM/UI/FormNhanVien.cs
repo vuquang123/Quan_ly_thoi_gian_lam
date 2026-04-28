@@ -509,9 +509,9 @@ namespace FaceIDHRM.UI
                         _cooldownUntil = DateTime.Now; // Khôi phục scan
                         return;
                     }
-                    if (nhanVien.FaceEncoding != null && nhanVien.FaceEncoding.Length > 0)
+                    if (nhanVien.FaceEncoding == null || nhanVien.FaceEncoding.Length == 0)
                     {
-                        MessageBox.Show("Nhân viên này ĐÃ CÓ dữ liệu khuôn mặt. Bạn không thể tự cập nhật đè! Vui lòng nhờ Quản trị viên xử lý nếu muốn thay đổi.", "Cảnh báo bảo mật", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show("Nhân viên này CHƯA ĐƯỢC cập nhật FaceID bên Admin! Không thể chạy tiến trình quét.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         _cooldownUntil = DateTime.Now; // Khôi phục scan
                         return;
                     }
