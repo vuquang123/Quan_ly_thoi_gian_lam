@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using FaceIDHRM.Integration;
+using FaceIDHRM.Core;
+using FaceIDHRM.Core.Implementations;
 using FaceIDHRM.Managers;
 using FaceIDHRM.Models;
 using OpenCvSharp.Extensions;
@@ -12,14 +14,20 @@ namespace FaceIDHRM.UI
 {
     public class FormAdmin : Form
     {
-        private FaceIDManager _faceManager;
+        private FaceIDSystem _faceManager;
         private NhanSuManager _nhanSuManager;
         private ChamCongManager _chamCongManager;
         private readonly IEarlyCheckoutGateway _approvalGateway;
         
         private PictureBox _cameraBox;
         private System.Windows.Forms.Timer _timer;
-        private OpenCvSharp.Mat _tempFaceMat; // Custom: Giữ ảnh tạm để thêm
+        // Custom: Giữ ảnh tạm để thêm
+        
+        // Multi-step enrollment logic
+        private int _enrollmentStep = -1; // -1: không phải chế độ đăng ký
+        private double[] _avgEncoding = new double[10000];
+        private DateTime _thoiGianDemNguocDangKy;
+        private double[] _tempFaceEncoding = null;
 
         // UI Controls cho Tab 1
         private TextBox txtMaNV, txtHoTen, txtLuongCB, txtSoDienThoai, txtSoKhac;
@@ -50,7 +58,7 @@ namespace FaceIDHRM.UI
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormClosing += FormAdmin_FormClosing;
 
-            _faceManager = new FaceIDManager();
+            _faceManager = new FaceIDSystem(new OpenCvCamera(), new FaceRecognitionDotNetDetector(), new FaceRecognitionDotNetRecognizer());
             _nhanSuManager = new NhanSuManager();
             _chamCongManager = new ChamCongManager();
             _approvalGateway = new EarlyCheckoutGateway(ServerConfig.ApprovalServerUrl);
@@ -420,6 +428,65 @@ namespace FaceIDHRM.UI
                 {
                     OpenCvSharp.Cv2.Rectangle(frame, rect, OpenCvSharp.Scalar.Red, 2);
                 }
+
+                if (_enrollmentStep >= 0 && _enrollmentStep < 3)
+                {
+                    double timeLeft = (_thoiGianDemNguocDangKy - DateTime.Now).TotalSeconds;
+                    string stepMsg = _enrollmentStep == 0 ? "Nhin Thang" : (_enrollmentStep == 1 ? "Nghieng TRAI" : "Nghieng PHAI");
+                    
+                    OpenCvSharp.Cv2.PutText(frame, $"Buoc {_enrollmentStep + 1}/3: {stepMsg}", new OpenCvSharp.Point(10, 40), OpenCvSharp.HersheyFonts.HersheySimplex, 1.0, OpenCvSharp.Scalar.Yellow, 2);
+                    OpenCvSharp.Cv2.PutText(frame, $"Tien trinh: {_enrollmentStep * 33}%", new OpenCvSharp.Point(10, 80), OpenCvSharp.HersheyFonts.HersheySimplex, 1.0, OpenCvSharp.Scalar.LimeGreen, 2);
+
+                    if (timeLeft > 0)
+                    {
+                        lblStatus.Text = $"📷 Vui lòng: {stepMsg}! Chụp sau {Math.Ceiling(timeLeft)}s...";
+                        lblStatus.ForeColor = Color.DarkBlue;
+                    }
+                    else
+                    {
+                        if (faces.Length == 1)
+                        {
+                            using var croppedFace = new OpenCvSharp.Mat(frame, faces[0]);
+                            try
+                            {
+                                // Kiem tra gian lan ngay lap tuc
+                                string duplicatedID = _faceManager.Verification(croppedFace, _nhanSuManager.LayDanhSach());
+                                string targetMaNV = txtMaNV.Text;
+                                if (duplicatedID != null && duplicatedID != targetMaNV && !string.IsNullOrEmpty(targetMaNV))
+                                {
+                                    MessageBox.Show($"Khuôn mặt này đã được gắn cho nhân viên [{duplicatedID}]. Bạn không thể dùng mặt người khác!", "Cảnh báo Bảo Mật", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                    _enrollmentStep = -1; // Huy
+                                }
+                                else
+                                {
+                                    double[] vec = _faceManager.GetEncoding(croppedFace);
+                                    for (int i = 0; i < 10000; i++) _avgEncoding[i] += vec[i] / 3.0;
+
+                                    _enrollmentStep++;
+                                    if (_enrollmentStep < 3)
+                                    {
+                                        Console.Beep(800, 200);
+                                        _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
+                                    }
+                                    else
+                                    {
+                                        Console.Beep(1000, 500);
+                                        _tempFaceEncoding = _avgEncoding;
+                                        lblStatus.Text = "Đã lấy FaceID 3 góc thành công. Nhấn Cập Nhật hoặc Thêm Mới để Lưu.";
+                                        lblStatus.ForeColor = Color.Orange;
+                                        MessageBox.Show("Hoàn tất thu thập FaceID 3 góc!");
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                lblStatus.Text = "Lỗi khi lấy ảnh: " + ex.Message;
+                                _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(2);
+                            }
+                        }
+                    }
+                }
+
                 var oldImg = _cameraBox.Image;
                 _cameraBox.Image = BitmapConverter.ToBitmap(frame);
                 oldImg?.Dispose();
@@ -430,41 +497,11 @@ namespace FaceIDHRM.UI
         {
             if (!_timer.Enabled) { MessageBox.Show("Phải BẬT Camera để tạo mã nhận diện khuôn mặt mới!"); return; }
             
-            using var frame = _faceManager.GetFrame();
-            if (frame != null && !frame.Empty())
-            {
-                var faces = _faceManager.PhatHienKhuonMat(frame);
-                if (faces.Length == 0) { MessageBox.Show("Màn hình không tìm thấy khuôn mặt nào."); return; }
-                
-                _tempFaceMat?.Dispose();
-                _tempFaceMat = new OpenCvSharp.Mat(frame, faces[0]);
-
-                using var bmp = BitmapConverter.ToBitmap(_tempFaceMat);
-                using var previewForm = new Form { Text = "Xác nhận khuôn mặt", Size = new Size(300, 350), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false };
-                var pic = new PictureBox { Image = bmp, SizeMode = PictureBoxSizeMode.Zoom, Dock = DockStyle.Top, Height = 220 };
-                previewForm.Controls.Add(pic);
-                var lbl = new Label { Text = "Ảnh chụp đã đủ rõ nét chưa?", Dock = DockStyle.Top, TextAlign = ContentAlignment.MiddleCenter, Height = 40, Font = new Font("Arial", 10, FontStyle.Bold) };
-                previewForm.Controls.Add(lbl);
-                var pnlBtn = new Panel { Dock = DockStyle.Bottom, Height = 50 };
-                var btnOk = new Button { Text = "Chuẩn rồi", DialogResult = DialogResult.OK, Location = new Point(35, 10), Size = new Size(100, 30), BackColor = Color.LightGreen, Font = new Font("Arial", 9, FontStyle.Bold) };
-                var btnRetry = new Button { Text = "Chụp lại", DialogResult = DialogResult.Cancel, Location = new Point(145, 10), Size = new Size(100, 30), BackColor = Color.LightCoral, Font = new Font("Arial", 9, FontStyle.Bold) };
-                pnlBtn.Controls.Add(btnOk);
-                pnlBtn.Controls.Add(btnRetry);
-                previewForm.Controls.Add(pnlBtn);
-
-                if (previewForm.ShowDialog(this) == DialogResult.OK)
-                {
-                    lblStatus.Text = "Đã lấy ảnh FaceID thành công. Trạng thái tạm thời, bấm 'Cập Nhật' hoặc 'Thêm Mới' để Lưu.";
-                    lblStatus.ForeColor = Color.Orange;
-                }
-                else
-                {
-                    _tempFaceMat.Dispose();
-                    _tempFaceMat = null;
-                    lblStatus.Text = "Đã hủy ảnh vừa chụp.";
-                    lblStatus.ForeColor = Color.Red;
-                }
-            }
+            _enrollmentStep = 0;
+            _avgEncoding = new double[10000];
+            _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(4); // Start 4s countdown
+            lblStatus.Text = "Bắt đầu đăng ký khuôn mặt 3 góc độ...";
+            lblStatus.ForeColor = Color.Blue;
         }
 
         private void BtnAdd_Click(object? sender, EventArgs e)
@@ -478,21 +515,7 @@ namespace FaceIDHRM.UI
                 return; 
             }
 
-            string path = "";
-            if (_tempFaceMat != null && !_tempFaceMat.IsDisposed)
-            {
-                // [TÍNH NĂNG BẢO MẬT]: Kiểm tra chống nhân bản khuôn mặt
-                string duplicatedID = _faceManager.Verification(_tempFaceMat, _nhanSuManager.LayDanhSach());
-                if (duplicatedID != null && duplicatedID != targetMaNV)
-                {
-                    MessageBox.Show($"Khuôn mặt này đã được gắn cho nhân viên [{duplicatedID}]. Bạn không thể dùng mặt của người khác để tạo tài khoản ảo!", "Bảo mật Hệ Thống", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
 
-                path = _faceManager.Enrollment(targetMaNV, _tempFaceMat);
-                _tempFaceMat.Dispose();
-                _tempFaceMat = null;
-            }
 
             double luong = ParseCurrency(txtLuongCB.Text);
             double sK = txtSoKhac.Visible ? ParseCurrency(txtSoKhac.Text) : 0;
@@ -509,7 +532,11 @@ namespace FaceIDHRM.UI
             
             nvMoi.PhongBan = cbPhongBan.SelectedItem?.ToString() ?? "Chưa phân bổ";
             
-            if (!string.IsNullOrEmpty(path)) nvMoi.FaceDataPath = path;
+            if (_tempFaceEncoding != null)
+            {
+                nvMoi.FaceEncoding = _tempFaceEncoding;
+                _tempFaceEncoding = null;
+            }
 
             try
             {
@@ -545,20 +572,10 @@ namespace FaceIDHRM.UI
                     p.MucLuongTheoGio = luong;
                 }
 
-                if (_tempFaceMat != null && !_tempFaceMat.IsDisposed)
+                if (_tempFaceEncoding != null)
                 {
-                    // [TÍNH NĂNG BẢO MẬT]: Đảm bảo không lấy mặt thằng A đắp vào ID thằng B
-                    string duplicatedID = _faceManager.Verification(_tempFaceMat, _nhanSuManager.LayDanhSach());
-                    if (duplicatedID != null && duplicatedID != txtMaNV.Text)
-                    {
-                        MessageBox.Show($"Phát hiện gian lận! Khuôn mặt này là của nhân viên [{duplicatedID}]. Bạn không thể cập nhật đè cho ID [{txtMaNV.Text}]!", "Cảnh báo Bảo Mật", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-
-                    string path = _faceManager.Enrollment(txtMaNV.Text, _tempFaceMat);
-                    target.FaceDataPath = path;
-                    _tempFaceMat.Dispose();
-                    _tempFaceMat = null;
+                    target.FaceEncoding = _tempFaceEncoding;
+                    _tempFaceEncoding = null;
                 }
 
                 _nhanSuManager.Sua(target);

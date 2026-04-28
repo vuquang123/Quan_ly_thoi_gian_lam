@@ -92,7 +92,7 @@ namespace FaceIDHRM.Managers
                 existingNV.Email = nv.Email;
                 existingNV.ChucVu = nv.ChucVu;
                 existingNV.LuongCoBan = nv.LuongCoBan;
-                existingNV.FaceDataPath = nv.FaceDataPath;
+                existingNV.FaceEncoding = nv.FaceEncoding;
                 // Có thể cập nhật các thuộc tính riêng cho FullTime/PartTime nếu cần qua ép kiểu
                 LuuDuLieu();
             }
@@ -173,7 +173,7 @@ namespace FaceIDHRM.Managers
                 Email = nv.Email,
                 ChucVu = nv.ChucVu,
                 PhongBan = nv.PhongBan,
-                FaceDataPath = nv.FaceDataPath,
+                FaceEncoding = nv.FaceEncoding,
                 EmployeeType = nv is NhanVienPartTime ? EmployeeType.PartTime : EmployeeType.FullTime,
                 LuongCoBan = nv.LuongCoBan
             };
@@ -228,7 +228,7 @@ namespace FaceIDHRM.Managers
             }
 
             nv.PhongBan = dto.PhongBan;
-            nv.FaceDataPath = dto.FaceDataPath;
+            nv.FaceEncoding = dto.FaceEncoding;
             return nv;
         }
     }

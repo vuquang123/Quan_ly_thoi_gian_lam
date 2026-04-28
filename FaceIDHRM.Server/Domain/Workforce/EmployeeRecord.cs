@@ -12,7 +12,27 @@ namespace FaceIDHRM.Server.Domain.Workforce
         public string Email { get; set; } = string.Empty;
         public string ChucVu { get; set; } = string.Empty;
         public string PhongBan { get; set; } = string.Empty;
-        public string FaceDataPath { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
+        public double[] FaceEncoding { get; set; } = null;
+
+        public string FaceEncodingBase64
+        {
+            get
+            {
+                if (FaceEncoding == null) return null;
+                var bytes = new byte[FaceEncoding.Length * 8];
+                Buffer.BlockCopy(FaceEncoding, 0, bytes, 0, bytes.Length);
+                return Convert.ToBase64String(bytes);
+            }
+            set
+            {
+                if (string.IsNullOrEmpty(value)) { FaceEncoding = null; return; }
+                var bytes = Convert.FromBase64String(value);
+                FaceEncoding = new double[bytes.Length / 8];
+                Buffer.BlockCopy(bytes, 0, FaceEncoding, 0, bytes.Length);
+            }
+        }
 
         public EmployeeType EmployeeType { get; set; }
         public double LuongCoBan { get; set; }

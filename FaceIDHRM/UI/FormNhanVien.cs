@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using FaceIDHRM.Integration;
+using FaceIDHRM.Core;
+using FaceIDHRM.Core.Implementations;
 using FaceIDHRM.Managers;
 using FaceIDHRM.Models;
 using OpenCvSharp.Extensions;
@@ -12,7 +14,7 @@ namespace FaceIDHRM.UI
 {
     public class FormNhanVien : Form
     {
-        private FaceIDManager _faceManager;
+        private FaceIDSystem _faceManager;
         private NhanSuManager _nhanSuManager;
         private ChamCongManager _chamCongManager;
         
@@ -30,6 +32,8 @@ namespace FaceIDHRM.UI
         private KioskState _trangThai = KioskState.ChoKhuonMat;
         private string _idTamThoi = null;
         private DateTime _thoiGianDemNguocDangKy;
+        private int _enrollmentStep = 0;
+        private double[] _avgEncoding = new double[10000];
         private string _pendingApprovalRequestId = string.Empty;
 
         private readonly IEarlyCheckoutGateway _approvalGateway;
@@ -42,7 +46,7 @@ namespace FaceIDHRM.UI
             this.BackColor = Color.WhiteSmoke;
             this.FormClosing += FormNhanVien_FormClosing;
 
-            _faceManager = new FaceIDManager();
+            _faceManager = new FaceIDSystem(new OpenCvCamera(), new FaceRecognitionDotNetDetector(), new FaceRecognitionDotNetRecognizer());
             _nhanSuManager = new NhanSuManager();
             _chamCongManager = new ChamCongManager();
             _approvalGateway = new EarlyCheckoutGateway(ServerConfig.ApprovalServerUrl);
@@ -208,6 +212,13 @@ namespace FaceIDHRM.UI
                     OpenCvSharp.Cv2.Rectangle(frame, rect, color, 3);
                 }
 
+                if (_trangThai == KioskState.DangKyKhuonMat)
+                {
+                    string stepMsg = _enrollmentStep == 0 ? "Nhin Thang" : (_enrollmentStep == 1 ? "Nghieng TRAI" : "Nghieng PHAI");
+                    OpenCvSharp.Cv2.PutText(frame, $"Buoc {_enrollmentStep + 1}/3: {stepMsg}", new OpenCvSharp.Point(10, 40), OpenCvSharp.HersheyFonts.HersheySimplex, 1.0, OpenCvSharp.Scalar.Yellow, 2);
+                    OpenCvSharp.Cv2.PutText(frame, $"Tien trinh: {_enrollmentStep * 33}%", new OpenCvSharp.Point(10, 80), OpenCvSharp.HersheyFonts.HersheySimplex, 1.0, OpenCvSharp.Scalar.LimeGreen, 2);
+                }
+
                 var oldImg = _cameraBox.Image;
                 _cameraBox.Image = BitmapConverter.ToBitmap(frame);
                 oldImg?.Dispose();
@@ -217,10 +228,11 @@ namespace FaceIDHRM.UI
                 if (_trangThai == KioskState.DangKyKhuonMat)
                 {
                     double timeLeft = (_thoiGianDemNguocDangKy - DateTime.Now).TotalSeconds;
+                    string stepMsg = _enrollmentStep == 0 ? "Nhìn Thẳng" : (_enrollmentStep == 1 ? "Nghiêng TRÁI" : "Nghiêng PHẢI");
                     
                     if (timeLeft > 0)
                     {
-                        ShowResult($"📷 Giữ thẳng mặt! Đang bắt nét trong {Math.Ceiling(timeLeft)}s...", Color.DarkBlue, Color.Yellow);
+                        ShowResult($"📷 Vui lòng: {stepMsg}! Chụp sau {Math.Ceiling(timeLeft)}s...", Color.DarkBlue, Color.Yellow);
                     }
                     else
                     {
@@ -229,15 +241,28 @@ namespace FaceIDHRM.UI
                             using var croppedFace = new OpenCvSharp.Mat(frame, faces[0]);
                             try
                             {
-                                string newPath = _faceManager.Enrollment(_idTamThoi, croppedFace);
-                                
-                                var nv = _nhanSuManager.TimKiem(_idTamThoi);
-                                nv.FaceDataPath = newPath;
-                                _nhanSuManager.Sua(nv); // Lưu vào DB
+                                double[] vec = _faceManager.GetEncoding(croppedFace);
+                                for (int i = 0; i < 10000; i++) _avgEncoding[i] += vec[i] / 3.0;
 
-                                Console.Beep(1000, 500); // Kéo tiếng bip dài báo ok
-                                ShowResult("✅ Lấy FaceID thành công! Giờ bạn có thể chấm công.", Color.White, Color.Green);
-                                _cooldownUntil = DateTime.Now.AddSeconds(4);
+                                _enrollmentStep++;
+                                
+                                if (_enrollmentStep < 3)
+                                {
+                                    Console.Beep(800, 200);
+                                    _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3); // Tiếp tục bước sau
+                                }
+                                else
+                                {
+                                    // Hoàn thành
+                                    var nv = _nhanSuManager.TimKiem(_idTamThoi);
+                                    nv.FaceEncoding = _avgEncoding;
+                                    _nhanSuManager.Sua(nv); // Lưu vào DB
+
+                                    Console.Beep(1000, 500); // Kéo tiếng bip dài báo ok
+                                    ShowResult("✅ Cài đặt FaceID thành công! Đã gộp 3 góc mặt.", Color.White, Color.Green);
+                                    _cooldownUntil = DateTime.Now.AddSeconds(4);
+                                    _trangThai = KioskState.ChoKhuonMat;
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -255,7 +280,8 @@ namespace FaceIDHRM.UI
                             ShowResult("❌ Không tìm thấy khuôn mặt rõ diện! Hãy thử lại sau.", Color.Red, Color.MistyRose);
                             _cooldownUntil = DateTime.Now.AddSeconds(3);
                         }
-                        _trangThai = KioskState.ChoKhuonMat; // Trả về trạng thái quét bình thường
+                        
+                        // Nếu có lỗi (chưa chuyển trạng thái thành công) thì ta không reset trạng thái để nó tự bắt lại ảnh sau khi cooldown
                     }
                     return; // Ngắt không chạy các logic Check-in hay AntiSpoofing bên dưới nữa
                 }
@@ -480,7 +506,7 @@ namespace FaceIDHRM.UI
                         _cooldownUntil = DateTime.Now; // Khôi phục scan
                         return;
                     }
-                    if (!string.IsNullOrEmpty(nhanVien.FaceDataPath))
+                    if (nhanVien.FaceEncoding != null && nhanVien.FaceEncoding.Length > 0)
                     {
                         MessageBox.Show("Nhân viên này ĐÃ CÓ dữ liệu khuôn mặt. Bạn không thể tự cập nhật đè! Vui lòng nhờ Quản trị viên xử lý nếu muốn thay đổi.", "Cảnh báo bảo mật", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         _cooldownUntil = DateTime.Now; // Khôi phục scan
@@ -491,6 +517,8 @@ namespace FaceIDHRM.UI
                     _idTamThoi = maNV;
                     _trangThai = KioskState.DangKyKhuonMat;
                     _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(4); // 4s đếm lùi vì 1s đầu là để ngước nhìn
+                    _enrollmentStep = 0;
+                    _avgEncoding = new double[10000];
                     Console.Beep(600, 200);
                 }
                 else

@@ -60,3 +60,30 @@ foreach (NhanVien nv in dsNV)
 }
 ```
 
+---
+
+## 5. Luồng thực thi (Flow) của đồ án gắn liền với các tính chất OOP
+
+Để có cái nhìn tổng quan về cách các nguyên lý OOP vận hành trong thực tế đồ án, dưới đây là luồng thực thi (flow) từ lúc bật phần mềm đến lúc tính lương cuối tháng:
+
+### Flow 1: Khởi động hệ thống & Tải dữ liệu (Tính Trừu Tượng + Đóng Gói)
+*   **Quá trình:** Khi phần mềm bật lên, thay vì giao diện màn hình (UI) trực tiếp tự mở các file `.json` hoặc tự kết nối Database để lấy dữ liệu, thì giao diện sẽ **ủy quyền** việc đó cho các "Người quản lý" (`NhanSuManager`, `ChamCongManager`).
+*   **Áp dụng OOP:**
+    *   **Đóng gói:** Các danh sách chứa hàng trăm nhân viên hay hàng nghìn lượt chấm công được cất giấu bằng từ khóa `private _danhSachNhanVien` bên trong Manager. Form không thể tự ý sửa xóa trực tiếp.
+    *   **Trừu tượng:** UI giao tiếp với Manager thông qua một Interface `IQuanLy<T>`. UI chỉ biết gọi lệnh `"Này Manager, lấy danh sách ra đây"`, hoàn toàn không biết cấu trúc lưu trữ bên dưới của Manager là gì.
+
+### Flow 2: Thêm mới Nhân sự (Tính Kế Thừa)
+*   **Quá trình:** Khi Admin nhập thông tin và chọn phân loại nhân viên là *Full-time* hay *Part-time* rồi bấm Lưu.
+*   **Áp dụng OOP:**
+    *   **Kế thừa:** Dưới code, hệ thống khởi tạo `new NhanVienFullTime()` hoặc `new NhanVienPartTime()`. Nhờ kế thừa từ lớp `NhanVien`, lập trình viên không phải viết code lại các trường như `MaNV`, `HoTen`. Đặc biệt, hệ thống có thể nhét tất cả các thể loại nhân viên này vào chung một danh sách duy nhất `List<NhanVien>` để dễ dàng duyệt và quản lý tập trung.
+
+### Flow 3: Luồng Chấm công Kiosk (Tính Đóng Gói Hành Vi)
+*   **Quá trình:** Khi camera nhận diện được khuôn mặt, nó gửi `MaNV` và thời gian hiện tại vào hệ thống chấm công.
+*   **Áp dụng OOP:**
+    *   **Đóng gói hành vi:** Thay vì Kiosk phải viết các lệnh `if/else` để tính toán xem người này đi làm đúng giờ hay đi trễ, nó chỉ việc khởi tạo đối tượng `NgayLamViec` và gọi phương thức `openRecord.XacDinhTrangThai()`. Bản thân đối tượng `NgayLamViec` đã "đóng gói" sẵn quy tắc các ca làm việc bên trong nó. Nó tự lấy thời gian check-in để đối chiếu và tự dán nhãn "Đúng giờ" hay "Đi trễ".
+
+### Flow 4: Chạy Báo Cáo Tính Lương (Tính Đa Hình)
+*   **Quá trình:** Cuối tháng, Admin bấm nút **"Tính Lương"**. Lương Full-time = [Lương cơ bản + Phụ cấp], lương Part-time = [Số giờ làm x Tiền lương/giờ].
+*   **Áp dụng OOP:**
+    *   **Đa hình:** Vòng lặp tính lương duyệt qua danh sách hàng trăm người chỉ cần dùng đúng 1 dòng code duy nhất: `double tien = nv.TinhLuong();` mà không cần lệnh rẽ nhánh `if-else` để kiểm tra loại nhân viên.
+    *   Tại thời điểm ứng dụng chạy, hệ thống sẽ tự động bắt mạch xem cái biến `nv` kia đang chứa đối tượng Full-time hay Part-time để gọi đúng công thức tính lương của riêng người đó.
