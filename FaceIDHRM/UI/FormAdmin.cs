@@ -460,7 +460,10 @@ namespace FaceIDHRM.UI
                                 else
                                 {
                                     double[] vec = _faceManager.GetEncoding(croppedFace);
-                                    for (int i = 0; i < 10000; i++) _avgEncoding[i] += vec[i] / 3.0;
+                                    if (_enrollmentStep == 0)
+                                    {
+                                        for (int i = 0; i < 10000; i++) _avgEncoding[i] = vec[i];
+                                    }
 
                                     _enrollmentStep++;
                                     if (_enrollmentStep < 3)

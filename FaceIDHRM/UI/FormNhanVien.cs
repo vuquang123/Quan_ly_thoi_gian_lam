@@ -243,7 +243,10 @@ namespace FaceIDHRM.UI
                             try
                             {
                                 double[] vec = _faceManager.GetEncoding(croppedFace);
-                                for (int i = 0; i < 10000; i++) _avgEncoding[i] += vec[i] / 3.0;
+                                if (_enrollmentStep == 0)
+                                {
+                                    for (int i = 0; i < 10000; i++) _avgEncoding[i] = vec[i];
+                                }
 
                                 _capturedImages[_enrollmentStep] = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(croppedFace);
                                 _enrollmentStep++;
@@ -468,7 +471,7 @@ namespace FaceIDHRM.UI
                             _pendingApprovalRequestId = request.Id;
                             _trangThai = KioskState.ChoDuyetCheckoutSom;
                             ShowResult("🕒 Đã gửi yêu cầu checkout sớm. Đang chờ admin duyệt...", Color.DarkBlue, Color.Khaki);
-                            _cooldownUntil = DateTime.Now.AddMinutes(10);
+                            _cooldownUntil = DateTime.MaxValue;
                             return;
                         }
 
