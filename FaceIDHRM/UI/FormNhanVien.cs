@@ -35,6 +35,7 @@ namespace FaceIDHRM.UI
         private int _enrollmentStep = 0;
         private double[] _avgEncoding = new double[10000];
         private string _pendingApprovalRequestId = string.Empty;
+        private Image[] _capturedImages = new Image[3];
 
         private readonly IEarlyCheckoutGateway _approvalGateway;
 
@@ -244,6 +245,7 @@ namespace FaceIDHRM.UI
                                 double[] vec = _faceManager.GetEncoding(croppedFace);
                                 for (int i = 0; i < 10000; i++) _avgEncoding[i] += vec[i] / 3.0;
 
+                                _capturedImages[_enrollmentStep] = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(croppedFace);
                                 _enrollmentStep++;
                                 
                                 if (_enrollmentStep < 3)
@@ -253,15 +255,97 @@ namespace FaceIDHRM.UI
                                 }
                                 else
                                 {
-                                    // Hoàn thành
-                                    var nv = _nhanSuManager.TimKiem(_idTamThoi);
-                                    nv.FaceEncoding = _avgEncoding;
-                                    _nhanSuManager.Sua(nv); // Lưu vào DB
+                                    using (Form confirmForm = new Form())
+                                    {
+                                        confirmForm.Text = "Xác nhận hình ảnh FaceID";
+                                        confirmForm.Size = new Size(900, 450);
+                                        confirmForm.StartPosition = FormStartPosition.CenterParent;
+                                        confirmForm.FormBorderStyle = FormBorderStyle.FixedDialog;
+                                        confirmForm.MaximizeBox = false;
+                                        confirmForm.MinimizeBox = false;
+                                        confirmForm.BackColor = Color.WhiteSmoke;
 
-                                    Console.Beep(1000, 500); // Kéo tiếng bip dài báo ok
-                                    ShowResult("✅ Cài đặt FaceID thành công! Đã gộp 3 góc mặt.", Color.White, Color.Green);
-                                    _cooldownUntil = DateTime.Now.AddSeconds(4);
-                                    _trangThai = KioskState.ChoKhuonMat;
+                                        Label lblTitle = new Label()
+                                        {
+                                            Text = "Vui lòng kiểm tra lại 3 ảnh FaceID vừa chụp. Đảm bảo ảnh rõ nét, không bị mờ!",
+                                            Dock = DockStyle.Top,
+                                            Height = 50,
+                                            TextAlign = ContentAlignment.MiddleCenter,
+                                            Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                                            ForeColor = Color.DarkBlue
+                                        };
+                                        confirmForm.Controls.Add(lblTitle);
+
+                                        TableLayoutPanel pnlImages = new TableLayoutPanel()
+                                        {
+                                            Dock = DockStyle.Fill,
+                                            ColumnCount = 3,
+                                            RowCount = 1
+                                        };
+                                        pnlImages.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+                                        pnlImages.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+                                        pnlImages.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+
+                                        for (int idx = 0; idx < 3; idx++)
+                                        {
+                                            PictureBox pb = new PictureBox()
+                                            {
+                                                Image = _capturedImages[idx],
+                                                SizeMode = PictureBoxSizeMode.Zoom,
+                                                Dock = DockStyle.Fill,
+                                                BorderStyle = BorderStyle.FixedSingle,
+                                                Margin = new Padding(15),
+                                                BackColor = Color.Black
+                                            };
+                                            pnlImages.Controls.Add(pb, idx, 0);
+                                        }
+                                        confirmForm.Controls.Add(pnlImages);
+
+                                        FlowLayoutPanel pnlButtons = new FlowLayoutPanel()
+                                        {
+                                            Dock = DockStyle.Bottom,
+                                            Height = 60,
+                                            FlowDirection = FlowDirection.RightToLeft,
+                                            Padding = new Padding(10)
+                                        };
+
+                                        Button btnCancel = new Button() { Text = "Hủy và Thử lại", DialogResult = DialogResult.Cancel, Width = 150, Height = 35, Font = new Font("Segoe UI", 10, FontStyle.Bold), BackColor = Color.MistyRose };
+                                        Button btnOk = new Button() { Text = "Đồng ý & Lưu", DialogResult = DialogResult.OK, Width = 150, Height = 35, Font = new Font("Segoe UI", 10, FontStyle.Bold), BackColor = Color.LightGreen };
+                                        pnlButtons.Controls.Add(btnCancel);
+                                        pnlButtons.Controls.Add(btnOk);
+                                        confirmForm.Controls.Add(pnlButtons);
+
+                                        confirmForm.AcceptButton = btnOk;
+                                        confirmForm.CancelButton = btnCancel;
+
+                                        if (confirmForm.ShowDialog() == DialogResult.OK)
+                                        {
+                                            // Hoàn thành
+                                            var nv = _nhanSuManager.TimKiem(_idTamThoi);
+                                            nv.FaceEncoding = _avgEncoding;
+                                            _nhanSuManager.Sua(nv); // Lưu vào DB
+
+                                            Console.Beep(1000, 500);
+                                            ShowResult("✅ Cài đặt FaceID thành công! Đã gộp 3 góc mặt.", Color.White, Color.Green);
+                                            _cooldownUntil = DateTime.Now.AddSeconds(4);
+                                            _trangThai = KioskState.ChoKhuonMat;
+                                        }
+                                        else
+                                        {
+                                            ShowResult("❌ Đã hủy lưu FaceID! Vui lòng thực hiện lại.", Color.Red, Color.MistyRose);
+                                            _enrollmentStep = 0;
+                                            _avgEncoding = new double[10000];
+                                            _cooldownUntil = DateTime.Now;
+                                            _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(4);
+                                        }
+
+                                        // Dọn dẹp bộ nhớ ảnh
+                                        for (int idx = 0; idx < 3; idx++)
+                                        {
+                                            _capturedImages[idx]?.Dispose();
+                                            _capturedImages[idx] = null;
+                                        }
+                                    }
                                 }
                             }
                             catch (Exception ex)
