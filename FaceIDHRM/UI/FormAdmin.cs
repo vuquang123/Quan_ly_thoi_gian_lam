@@ -508,14 +508,11 @@ namespace FaceIDHRM.UI
         {
             if (string.IsNullOrEmpty(txtHoTen.Text)) { MessageBox.Show("Họ tên trống!"); return; }
             string targetMaNV = string.IsNullOrEmpty(txtMaNV.Text) ? "NV" + (_nhanSuManager.LayDanhSach().Count + 1).ToString("D2") : txtMaNV.Text;
-            
             if (_nhanSuManager.TimKiem(targetMaNV) != null) 
             { 
                 MessageBox.Show("Mã NV đã tồn tại! Vui lòng dùng nút Cập Nhật."); 
                 return; 
             }
-
-
 
             double luong = ParseCurrency(txtLuongCB.Text);
             double sK = txtSoKhac.Visible ? ParseCurrency(txtSoKhac.Text) : 0;
@@ -529,15 +526,13 @@ namespace FaceIDHRM.UI
             {
                 nvMoi = new NhanVienPartTime(targetMaNV, txtHoTen.Text, new DateTime(2000, 1, 1), "0001", txtSoDienThoai.Text, "email", "Nhân sự", 0, luong, 300); // hardcode max 300h theo logic
             }
-            
             nvMoi.PhongBan = cbPhongBan.SelectedItem?.ToString() ?? "Chưa phân bổ";
-            
+            // Nếu có FaceID thì gán, không có thì thôi, không bắt buộc
             if (_tempFaceEncoding != null)
             {
                 nvMoi.FaceEncoding = _tempFaceEncoding;
                 _tempFaceEncoding = null;
             }
-
             try
             {
                 _nhanSuManager.Them(nvMoi);
