@@ -106,4 +106,12 @@ sequenceDiagram
     end
     
     Manager-->>Admin: Hiển thị Tổng quỹ lương lên bảng
+
+---
+
+## 4. Các Thư Viện Công Nghệ Sử Dụng Trong Hệ Thống
+
+*   **`OpenCvSharp4`**: Quản lý thu hình ảnh, nhận dạng mắt và chống gian lận qua camera.
+*   **`SignalR`**: Đồng bộ trạng thái Admin <-> Kiosk lập tức.
+*   **`Newtonsoft.Json`**: Quản lý cấu trúc file local.
 ```

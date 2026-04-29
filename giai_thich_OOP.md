@@ -86,4 +86,25 @@ foreach (NhanVien nv in dsNV)
 *   **Quá trình:** Cuối tháng, Admin bấm nút **"Tính Lương"**. Lương Full-time = [Lương cơ bản + Phụ cấp], lương Part-time = [Số giờ làm x Tiền lương/giờ].
 *   **Áp dụng OOP:**
     *   **Đa hình:** Vòng lặp tính lương duyệt qua danh sách hàng trăm người chỉ cần dùng đúng 1 dòng code duy nhất: `double tien = nv.TinhLuong();` mà không cần lệnh rẽ nhánh `if-else` để kiểm tra loại nhân viên.
-    *   Tại thời điểm ứng dụng chạy, hệ thống sẽ tự động bắt mạch xem cái biến `nv` kia đang chứa đối tượng Full-time hay Part-time để gọi đúng công thức tính lương của riêng người đó.
+    * Tại thời điểm ứng dụng chạy, hệ thống sẽ tự động bắt mạch xem cái biến `nv` kia đang chứa đối tượng Full-time hay Part-time để gọi đúng công thức tính lương của riêng người đó.
+
+---
+
+## 6. Các Thư Viện Được Sử Dụng Trong Dự Án
+
+Để kiến trúc OOP và hệ thống vận hành mượt mà, dự án tích hợp các thư viện sau:
+
+### A. Phía Client / Kiosk (`FaceIDHRM`)
+*   **`OpenCvSharp4` / `OpenCvSharp4.Extensions` / `OpenCvSharp4.runtime.win`**: 
+    *   *Vai trò:* Cung cấp các Wrapper C# cho OpenCV gốc.
+    *   *Tính năng:* Điều phối luồng Camera trực tiếp (`OpenCvCamera`), phát hiện biên độ khuôn mặt bằng Cascade Classifier, hỗ trợ chuyển đổi định dạng Ma trận hình ảnh (`Mat`) sang `System.Drawing.Bitmap` hiển thị trên giao diện Windows Forms.
+*   **`Microsoft.AspNetCore.SignalR.Client`**:
+    *   *Vai trò:* Trình kết nối Socket Client.
+    *   *Tính năng:* Nhận diện các luồng dữ liệu Real-time đồng bộ từ server phát xuống, ví dụ: Cập nhật tức thì các yêu cầu Checkout sớm khi được Admin phê chuẩn.
+*   **`Newtonsoft.Json`**:
+    *   *Vai trò:* Chuyển đổi dữ liệu.
+
+### B. Phía Server (`FaceIDHRM.Server`)
+*   **`Microsoft.AspNetCore.OpenApi`**:
+    *   *Vai trò:* Tự động hóa xuất tài liệu API (Swagger).
+*   **Tích hợp sẵn SignalR Server Core**: Xử lý phân phối gói tin tức thì.
