@@ -259,11 +259,11 @@ namespace FaceIDHRM.UI
             dgvChamCong.Columns["HoTen"].Width = 160;
             tab.Controls.Add(dgvChamCong);
 
-            Button btnExportMatrix = new Button { Text = "Xuất Ma trận Chấm Công (Lưới)", Location = new Point(20, 560), Size = new Size(700, 40), BackColor = Color.LightSeaGreen, ForeColor = Color.White, Font = new Font("Arial", 11, FontStyle.Bold) };
+            Button btnExportMatrix = new Button { Text = "Xuất Ma trận Chấm Công", Location = new Point(20, 560), Size = new Size(700, 40), BackColor = Color.LightSeaGreen, ForeColor = Color.White, Font = new Font("Arial", 11, FontStyle.Bold) };
             btnExportMatrix.Click += BtnExportMatrix_Click;
             tab.Controls.Add(btnExportMatrix);
 
-            GroupBox grpManual = new GroupBox { Text = "Chấm Công Thủ Công & Sửa Log", Location = new Point(740, 60), Size = new Size(330, 250) };
+            GroupBox grpManual = new GroupBox { Text = "Chấm Công Thủ Công", Location = new Point(740, 60), Size = new Size(330, 250) };
             
             grpManual.Controls.Add(new Label { Text = "Mã Nhân Viên:", Location = new Point(20, 40), Size = new Size(100, 20) });
             txtManualCC = new TextBox { Location = new Point(130, 37), Size = new Size(150, 25) };
@@ -277,17 +277,17 @@ namespace FaceIDHRM.UI
             dtpManualTime = new DateTimePicker { Location = new Point(130, 97), Size = new Size(180, 25), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy HH:mm" };
             grpManual.Controls.Add(dtpManualTime);
 
-            Button btnManualCheckin = new Button { Text = "Ép Check-In", Location = new Point(20, 150), Size = new Size(120, 40), BackColor = Color.LightGreen };
+            Button btnManualCheckin = new Button { Text = "Check-In", Location = new Point(20, 150), Size = new Size(120, 40), BackColor = Color.LightGreen };
             btnManualCheckin.Click += (s, e) => ManualCheckIn();
             grpManual.Controls.Add(btnManualCheckin);
 
-            Button btnManualCheckout = new Button { Text = "Ép Check-Out", Location = new Point(160, 150), Size = new Size(120, 40), BackColor = Color.LightCoral };
+            Button btnManualCheckout = new Button { Text = "Check-Out", Location = new Point(160, 150), Size = new Size(120, 40), BackColor = Color.LightCoral };
             btnManualCheckout.Click += (s, e) => ManualCheckOut();
             grpManual.Controls.Add(btnManualCheckout);
 
             tab.Controls.Add(grpManual);
 
-            GroupBox grpApproval = new GroupBox { Text = "Duyệt Checkout Sớm (Realtime)", Location = new Point(740, 325), Size = new Size(330, 275) };
+            GroupBox grpApproval = new GroupBox { Text = "Duyệt Checkout Sớm", Location = new Point(740, 325), Size = new Size(330, 275) };
 
             dgvPendingApprovals = new DataGridView
             {
@@ -334,7 +334,7 @@ namespace FaceIDHRM.UI
             cbFilterBaoCao.SelectedIndex = DateTime.Now.Month;
             tab.Controls.Add(cbFilterBaoCao);
 
-            Button btnTinhLuong = new Button { Text = "⚡ Tính Lương (OOP Đa Hình)", Location = new Point(280, 20), Size = new Size(300, 32), Font = new Font("Arial", 11, FontStyle.Bold), BackColor = Color.Gold };
+            Button btnTinhLuong = new Button { Text = "⚡ Tính Lương", Location = new Point(280, 20), Size = new Size(300, 32), Font = new Font("Arial", 11, FontStyle.Bold), BackColor = Color.Gold };
             btnTinhLuong.Click += BtnTinhLuong_Click;
             tab.Controls.Add(btnTinhLuong);
 
