@@ -101,8 +101,9 @@ foreach (NhanVien nv in dsNV)
 *   **`Microsoft.AspNetCore.SignalR.Client`**:
     *   *Vai trò:* Trình kết nối Socket Client.
     *   *Tính năng:* Nhận diện các luồng dữ liệu Real-time đồng bộ từ server phát xuống, ví dụ: Cập nhật tức thì các yêu cầu Checkout sớm khi được Admin phê chuẩn.
-*   **`Newtonsoft.Json`**:
-    *   *Vai trò:* Chuyển đổi dữ liệu.
+*   **`Newtonsoft.Json`**: 
+    *   *Vai trò:* Tuần tự hóa/Giải tuần tự hóa dữ liệu (JSON Serialization).
+    *   *Tính năng:* Ánh xạ dữ liệu truyền nhận qua các giao thức API HTTP Client.
 
 ### B. Phía Server (`FaceIDHRM.Server`)
 *   **`Microsoft.AspNetCore.OpenApi`**:
