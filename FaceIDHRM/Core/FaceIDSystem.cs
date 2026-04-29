@@ -52,7 +52,7 @@ namespace FaceIDHRM.Core
         public Mat AlignFace(Mat faceImage)
         {
             if (faceImage == null || faceImage.Empty() || _eyeCascade == null || _eyeCascade.Empty())
-                return faceImage;
+                return faceImage?.Clone();
 
             using Mat gray = new Mat();
             Cv2.CvtColor(faceImage, gray, ColorConversionCodes.BGR2GRAY);

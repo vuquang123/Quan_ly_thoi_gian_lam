@@ -237,9 +237,15 @@ namespace FaceIDHRM.UI
                     }
                     else
                     {
-                        if (faces.Length == 1) // Chỉ lưu nếu có duy nhất 1 mặt rõ nét để tránh dính nhiều người
+                        if (faces.Length >= 1) // Lấy khuôn mặt to nhất để tránh dính background clutter
                         {
-                            using var croppedFace = new OpenCvSharp.Mat(frame, faces[0]);
+                            var largestFace = faces.OrderByDescending(f => f.Width * f.Height).First();
+                            int x = Math.Max(0, largestFace.X);
+                            int y = Math.Max(0, largestFace.Y);
+                            int w = Math.Min(frame.Width - x, largestFace.Width);
+                            int h = Math.Min(frame.Height - y, largestFace.Height);
+                            var safeRect = new OpenCvSharp.Rect(x, y, w, h);
+                            using var croppedFace = new OpenCvSharp.Mat(frame, safeRect);
                             try
                             {
                                 double[] vec = _faceManager.GetEncoding(croppedFace);
@@ -254,7 +260,7 @@ namespace FaceIDHRM.UI
                                     _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3); // Tiếp tục bước sau
                                 }
                                 else
-                                {
+                               {
                                     using (Form confirmForm = new Form())
                                     {
                                         confirmForm.Text = "Xác nhận hình ảnh FaceID";
@@ -334,7 +340,7 @@ namespace FaceIDHRM.UI
                                         {
                                             ShowResult("❌ Đã hủy lưu FaceID! Vui lòng thực hiện lại.", Color.Red, Color.MistyRose);
                                             _enrollmentStep = 0;
-                                            _avgEncoding = new double[10000];
+                                            _avgEncoding = new double[30000];
                                             _cooldownUntil = DateTime.Now;
                                             _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(4);
                                         }
@@ -350,16 +356,11 @@ namespace FaceIDHRM.UI
                             }
                             catch (Exception ex)
                             {
-                                ShowResult("❌ Lỗi khi lấy ảnh: " + ex.Message, Color.Red, Color.MistyRose);
-                                _cooldownUntil = DateTime.Now.AddSeconds(2);
-                                _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
+                                Console.WriteLine("EXCEPTION in VideoTimer_Tick: " + ex.ToString());
+                                MessageBox.Show("Lỗi khi lấy ảnh:\n" + ex.ToString(), "Lỗi FaceID", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                _enrollmentStep = -1; // Hủy
+                                _cooldownUntil = DateTime.Now.AddSeconds(5);
                             }
-                        }
-                        else if (faces.Length > 1)
-                        {
-                            ShowResult("❌ Quá nhiều khuôn mặt trong khung hình! Vui lòng đứng 1 mình.", Color.Red, Color.MistyRose);
-                            _cooldownUntil = DateTime.Now.AddSeconds(3);
-                            _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
                         }
                         else
                         {
@@ -384,7 +385,13 @@ namespace FaceIDHRM.UI
                     if ((DateTime.Now - _latestScanTime).TotalMilliseconds >= 1000)
                     {
                         _latestScanTime = DateTime.Now;
-                        ProcessFaceCheckIn(frame, faces[0]);
+                        var largestFace = faces.OrderByDescending(f => f.Width * f.Height).First();
+                        int x = Math.Max(0, largestFace.X);
+                        int y = Math.Max(0, largestFace.Y);
+                        int w = Math.Min(frame.Width - x, largestFace.Width);
+                        int h = Math.Min(frame.Height - y, largestFace.Height);
+                        var safeRect = new OpenCvSharp.Rect(x, y, w, h);
+                        ProcessFaceCheckIn(frame, safeRect);
                     }
                 }
             }
@@ -400,10 +407,29 @@ namespace FaceIDHRM.UI
                 var nhanVien = _nhanSuManager.TimKiem(recognizedID);
                 if (nhanVien != null)
                 {
+                    // Kiểm tra trạng thái chấm công trong ngày để bỏ qua thông báo không cần thiết
+                    var todayRecords = _chamCongManager.LayDanhSach()
+                        .Where(c => c.MaNV == recognizedID && c.NgayChamCong.Date == DateTime.Today)
+                        .ToList();
+
+                    var completed = todayRecords.FirstOrDefault(c => c.GioCheckIn.HasValue && c.GioCheckOut.HasValue);
+                    if (completed != null)
+                    {
+                        _cooldownUntil = DateTime.Now.AddSeconds(5);
+                        return;
+                    }
+
+                    var openRecord = todayRecords.FirstOrDefault(c => c.GioCheckIn.HasValue && !c.GioCheckOut.HasValue);
+                    if (openRecord != null)
+                    {
+                        _cooldownUntil = DateTime.Now.AddMinutes(2); 
+                        ExecuteChamCongLogic(recognizedID);
+                        return;
+                    }
+
                     // Tạm dừng scan để chờ người dùng xác nhận
                     _cooldownUntil = DateTime.Now.AddMinutes(2); 
-
-                    var confirm = MessageBox.Show(this, $"Nhận diện thành công: {nhanVien.HoTen}.\nBạn có muốn XÁC NHẬN chấm công ngay bây giờ không?", "Xác nhận chấm công", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    var confirm = MessageBox.Show(this, $"Nhận diện thành công: {nhanVien.HoTen} ({nhanVien.MaNV}).\nBạn có muốn XÁC NHẬN chấm công ngay bây giờ không?", "Xác nhận chấm công", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     
                     if (confirm == DialogResult.Yes)
                     {
@@ -431,9 +457,10 @@ namespace FaceIDHRM.UI
                 return;
             }
 
+            var nhanVien = _nhanSuManager.TimKiem(recognizedID);
+
             try
             {
-                var nhanVien = _nhanSuManager.TimKiem(recognizedID);
                 
                 // Sử dụng logic mới XuLyQuetMatTuDong cho nhiều ca
                 var recordResult = _chamCongManager.XuLyQuetMatTuDong(recognizedID, DateTime.Now);
@@ -443,13 +470,13 @@ namespace FaceIDHRM.UI
                 if (recordResult.GioCheckOut.HasValue) // Hành động Check-out
                 {
                     timeStr = recordResult.GioCheckOut.Value.ToString(@"hh\:mm");
-                    processText = $"✅ Check-out {recordResult.TenCa} thành công: {nhanVien.HoTen} lúc {timeStr}";
+                    processText = $"✅ Check-out {recordResult.TenCa} thành công: {nhanVien.HoTen} ({nhanVien.MaNV}) lúc {timeStr}";
                     ShowResult(processText, Color.DarkBlue, Color.LightSkyBlue);
                 }
                 else // Hành động Check-in
                 {
                     timeStr = recordResult.GioCheckIn.Value.ToString(@"hh\:mm");
-                    processText = $"✅ Check-in {recordResult.TenCa} thành công: {nhanVien.HoTen} lúc {timeStr}";
+                    processText = $"✅ Check-in {recordResult.TenCa} thành công: {nhanVien.HoTen} ({nhanVien.MaNV}) lúc {timeStr}";
                     ShowResult(processText, Color.Green, Color.LightGreen);
                 }
                 AddHistory(processText);
@@ -459,7 +486,7 @@ namespace FaceIDHRM.UI
             {
                 if (ex.Message.Contains("Vui lòng Check-out sau"))
                 {
-                    var confirmEarly = MessageBox.Show(this, $"Chưa đến giờ tan làm!\nBạn có chắc chắn muốn gửi YÊU CẦU XIN VỀ SỚM cho Admin không?", "Xác nhận về sớm", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    var confirmEarly = MessageBox.Show(this, $"Chưa đến giờ tan làm! [{nhanVien.MaNV} - {nhanVien.HoTen}]\nBạn có chắc chắn muốn gửi YÊU CẦU XIN VỀ SỚM cho Admin không?", "Xác nhận về sớm", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                     if (confirmEarly == DialogResult.Yes)
                     {
                         var request = TaoYeuCauCheckoutSom(recognizedID);
@@ -467,7 +494,7 @@ namespace FaceIDHRM.UI
                         {
                             _pendingApprovalRequestId = request.Id;
                             _trangThai = KioskState.ChoDuyetCheckoutSom;
-                            ShowResult("🕒 Đã gửi yêu cầu checkout sớm. Đang chờ admin duyệt...", Color.DarkBlue, Color.Khaki);
+                            ShowResult($"🕒 Đã gửi yêu cầu checkout sớm cho {nhanVien.HoTen} ({nhanVien.MaNV}). Đang chờ admin duyệt...", Color.DarkBlue, Color.Khaki);
                             _cooldownUntil = DateTime.MaxValue;
                             return;
                         }
@@ -523,6 +550,11 @@ namespace FaceIDHRM.UI
 
         private void XuLyKetQuaDuyet(EarlyCheckoutRequestDto request)
         {
+            if (request.Status == EarlyCheckoutRequestStatus.Pending)
+            {
+                return;
+            }
+
             var nhanVien = _nhanSuManager.TimKiem(request.MaNV);
             var tenNV = nhanVien != null ? nhanVien.HoTen : request.MaNV;
 
@@ -606,7 +638,7 @@ namespace FaceIDHRM.UI
                     _trangThai = KioskState.DangKyKhuonMat;
                     _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(4); // 4s đếm lùi vì 1s đầu là để ngước nhìn
                     _enrollmentStep = 0;
-                    _avgEncoding = new double[10000];
+                    _avgEncoding = new double[30000];
                     Console.Beep(600, 200);
                 }
                 else

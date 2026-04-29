@@ -1,7 +1,10 @@
 using System;
+using System.Threading.Tasks;
 using FaceIDHRM.Server.Dtos.Workforce;
 using FaceIDHRM.Server.Services.Workforce;
+using FaceIDHRM.Server.Hubs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace FaceIDHRM.Server.Controllers
 {
@@ -10,10 +13,12 @@ namespace FaceIDHRM.Server.Controllers
     public class AttendanceController : ControllerBase
     {
         private readonly IAttendanceService _service;
+        private readonly IHubContext<EarlyCheckoutHub> _hubContext;
 
-        public AttendanceController(IAttendanceService service)
+        public AttendanceController(IAttendanceService service, IHubContext<EarlyCheckoutHub> hubContext)
         {
             _service = service;
+            _hubContext = hubContext;
         }
 
         [HttpGet]
@@ -23,11 +28,13 @@ namespace FaceIDHRM.Server.Controllers
         }
 
         [HttpPost("checkin")]
-        public IActionResult CheckIn([FromBody] ManualCheckDto dto)
+        public async Task<IActionResult> CheckIn([FromBody] ManualCheckDto dto)
         {
             try
             {
-                return Ok(_service.CheckIn(dto.MaNV, dto.Time));
+                var res = _service.CheckIn(dto.MaNV, dto.Time);
+                await _hubContext.Clients.All.SendAsync("AttendanceUpdated");
+                return Ok(res);
             }
             catch (Exception ex)
             {
@@ -36,11 +43,13 @@ namespace FaceIDHRM.Server.Controllers
         }
 
         [HttpPost("checkout")]
-        public IActionResult CheckOut([FromBody] ManualCheckDto dto)
+        public async Task<IActionResult> CheckOut([FromBody] ManualCheckDto dto)
         {
             try
             {
-                return Ok(_service.CheckOut(dto.MaNV, dto.Time));
+                var res = _service.CheckOut(dto.MaNV, dto.Time);
+                await _hubContext.Clients.All.SendAsync("AttendanceUpdated");
+                return Ok(res);
             }
             catch (Exception ex)
             {
@@ -49,11 +58,13 @@ namespace FaceIDHRM.Server.Controllers
         }
 
         [HttpPost("scan-auto")]
-        public IActionResult ScanAuto([FromBody] ScanAttendanceDto dto)
+        public async Task<IActionResult> ScanAuto([FromBody] ScanAttendanceDto dto)
         {
             try
             {
-                return Ok(_service.ScanAuto(dto.MaNV, dto.ScanTime));
+                var res = _service.ScanAuto(dto.MaNV, dto.ScanTime);
+                await _hubContext.Clients.All.SendAsync("AttendanceUpdated");
+                return Ok(res);
             }
             catch (Exception ex)
             {

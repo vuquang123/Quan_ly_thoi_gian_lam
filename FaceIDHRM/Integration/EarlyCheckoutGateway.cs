@@ -14,6 +14,7 @@ namespace FaceIDHRM.Integration
         private readonly string _baseUrl;
 
         public event Action<EarlyCheckoutRequestDto>? RequestUpdated;
+        public event Action? AttendanceUpdated;
 
         public EarlyCheckoutGateway(string baseUrl)
         {
@@ -36,6 +37,11 @@ namespace FaceIDHRM.Integration
             _hubConnection.On<EarlyCheckoutRequestDto>("RequestUpdated", payload =>
             {
                 RequestUpdated?.Invoke(payload);
+            });
+
+            _hubConnection.On("AttendanceUpdated", () =>
+            {
+                AttendanceUpdated?.Invoke();
             });
         }
 

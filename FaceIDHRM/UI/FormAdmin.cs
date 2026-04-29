@@ -63,6 +63,7 @@ namespace FaceIDHRM.UI
             _chamCongManager = new ChamCongManager();
             _approvalGateway = new EarlyCheckoutGateway(ServerConfig.ApprovalServerUrl);
             _approvalGateway.RequestUpdated += OnApprovalRequestUpdated;
+            _approvalGateway.AttendanceUpdated += OnAttendanceUpdated;
 
             SetupUI();
 
@@ -444,9 +445,15 @@ namespace FaceIDHRM.UI
                     }
                     else
                     {
-                        if (faces.Length == 1)
+                        if (faces.Length >= 1)
                         {
-                            using var croppedFace = new OpenCvSharp.Mat(frame, faces[0]);
+                            var largestFace = faces.OrderByDescending(f => f.Width * f.Height).First();
+                            int x = Math.Max(0, largestFace.X);
+                            int y = Math.Max(0, largestFace.Y);
+                            int w = Math.Min(frame.Width - x, largestFace.Width);
+                            int h = Math.Min(frame.Height - y, largestFace.Height);
+                            var safeRect = new OpenCvSharp.Rect(x, y, w, h);
+                            using var croppedFace = new OpenCvSharp.Mat(frame, safeRect);
                             try
                             {
                                 // Kiem tra gian lan ngay lap tuc
@@ -480,8 +487,10 @@ namespace FaceIDHRM.UI
                             }
                             catch (Exception ex)
                             {
-                                lblStatus.Text = "Lỗi khi lấy ảnh: " + ex.Message;
-                                _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(3);
+                                Console.WriteLine("EXCEPTION in Timer_Tick: " + ex.ToString());
+                                MessageBox.Show("Lỗi khi lấy ảnh:\n" + ex.ToString(), "Lỗi FaceID", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                _enrollmentStep = -1; // Hủy tiến trình
+                                lblStatus.Text = "Lỗi: " + ex.Message;
                             }
                         }
                         else
@@ -503,7 +512,7 @@ namespace FaceIDHRM.UI
             if (!_timer.Enabled) { MessageBox.Show("Phải BẬT Camera để tạo mã nhận diện khuôn mặt mới!"); return; }
             
             _enrollmentStep = 0;
-            _avgEncoding = new double[10000];
+            _avgEncoding = new double[30000];
             _thoiGianDemNguocDangKy = DateTime.Now.AddSeconds(4); // Start 4s countdown
             lblStatus.Text = "Bắt đầu đăng ký khuôn mặt 3 góc độ...";
             lblStatus.ForeColor = Color.Blue;
@@ -771,15 +780,29 @@ namespace FaceIDHRM.UI
             _ = ReloadPendingApprovalsAsync();
         }
 
+        private void OnAttendanceUpdated()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => UpdateChamCongList()));
+                return;
+            }
+
+            UpdateChamCongList();
+        }
+
         private void BtnExportMatrix_Click(object? sender, EventArgs e)
         {
+            _chamCongManager.LamMoiDuLieu();
+            _nhanSuManager.LamMoiDuLieu();
+
             using (SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV Files|*.csv", FileName = "BangChamCong_Matrix.csv" })
             {
                 if (sfd.ShowDialog() == DialogResult.OK)
                 {
                     try
                     {
-                        using (var sw = new System.IO.StreamWriter(sfd.FileName, false, System.Text.Encoding.UTF8))
+                        using (var sw = new System.IO.StreamWriter(sfd.FileName, false, new System.Text.UTF8Encoding(true)))
                         {
                             int year = DateTime.Now.Year;
                             int month = DateTime.Now.Month;
@@ -956,6 +979,9 @@ namespace FaceIDHRM.UI
 
         private void BtnExportBaoCao_Click(object? sender, EventArgs e)
         {
+            _chamCongManager.LamMoiDuLieu();
+            _nhanSuManager.LamMoiDuLieu();
+
             int selectedIndex = cbFilterBaoCao.SelectedIndex;
             int selMonth = selectedIndex == 0 ? 0 : selectedIndex;
             int selYear = DateTime.Now.Year;
@@ -967,7 +993,7 @@ namespace FaceIDHRM.UI
                 {
                     try
                     {
-                        using (var sw = new System.IO.StreamWriter(sfd.FileName, false, System.Text.Encoding.UTF8))
+                        using (var sw = new System.IO.StreamWriter(sfd.FileName, false, new System.Text.UTF8Encoding(true)))
                         {
                             sw.WriteLine("MaNV,HoTen,LoaiNV,SoNgayLam,SoGioLam,SoLanTre,LuongCoBan_MucGio,PhuCap,TongLuong");
                             var dsCC = _chamCongManager.LayDanhSach();
@@ -1014,21 +1040,27 @@ namespace FaceIDHRM.UI
 
         private void BtnExportCSVNV_Click(object? sender, EventArgs e)
         {
+            _nhanSuManager.LamMoiDuLieu();
+
             using (SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV Files|*.csv", FileName = "DanhSachNhanVien.csv" })
             {
                 if (sfd.ShowDialog() == DialogResult.OK)
                 {
                     try
                     {
-                        using (var sw = new System.IO.StreamWriter(sfd.FileName, false, System.Text.Encoding.UTF8))
+                        using (var sw = new System.IO.StreamWriter(sfd.FileName, false, new System.Text.UTF8Encoding(true)))
                         {
-                            sw.WriteLine("MaNV,HoTen,LoaiNV,LuongCBMucGio,HeSoPhuCapSoGio");
+                            sw.WriteLine("Mã NV,Họ Tên,Phòng Ban,Loại NV,SĐT,Lương CB/Giờ,Phụ Cấp/Số Giờ");
                             foreach (var nv in _nhanSuManager.LayDanhSach())
                             {
+                                string loaiText = nv is NhanVienFullTime ? "Full-Time" : "Part-Time";
+                                string pb = nv.PhongBan ?? "Chưa phân bổ";
+                                string sdt = nv.SoDienThoai ?? "";
+
                                 if (nv is NhanVienFullTime f)
-                                    sw.WriteLine($"{nv.MaNV},{nv.HoTen},Full,{f.LuongCoBan},{f.TienPhuCap}");
+                                    sw.WriteLine($"{nv.MaNV},{nv.HoTen},{pb},{loaiText},{sdt},{f.LuongCoBan},{f.TienPhuCap}");
                                 else if (nv is NhanVienPartTime p)
-                                    sw.WriteLine($"{nv.MaNV},{nv.HoTen},Part,{p.MucLuongTheoGio},{p.SoGioLamToiDa}");
+                                    sw.WriteLine($"{nv.MaNV},{nv.HoTen},{pb},{loaiText},{sdt},{p.MucLuongTheoGio},{p.SoGioLamToiDa}");
                             }
                         }
                         MessageBox.Show("Xuất danh sách Nhân viên thành công!");
@@ -1040,6 +1072,8 @@ namespace FaceIDHRM.UI
 
         private void BtnImportCSV_Click(object? sender, EventArgs e)
         {
+            _nhanSuManager.LamMoiDuLieu();
+
             using (OpenFileDialog ofd = new OpenFileDialog { Filter = "CSV Files|*.csv" })
             {
                 if (ofd.ShowDialog() == DialogResult.OK)
@@ -1061,18 +1095,39 @@ namespace FaceIDHRM.UI
                         for (int i = 1; i < lines.Length; i++)
                         {
                             string[] cols = lines[i].Split(',');
-                            if (cols.Length >= 5)
+                            if (cols.Length >= 7)
                             {
                                 string maNV = cols[0].Trim();
                                 if (_nhanSuManager.TimKiem(maNV) != null) continue;
-                                
+
+                                string hoTen = cols[1].Trim();
+                                string phongBan = cols[2].Trim();
+                                string loai = cols[3].Trim();
+                                string sdt = cols[4].Trim();
+                                double luongCB = double.Parse(cols[5].Trim());
+                                double heSo = double.Parse(cols[6].Trim());
+
+                                NhanVien nv;
+                                if (loai.ToLower().Contains("full"))
+                                    nv = new NhanVienFullTime(maNV, hoTen, DateTime.Now, "001", sdt, "email", phongBan, luongCB, 1.0, heSo);
+                                else
+                                    nv = new NhanVienPartTime(maNV, hoTen, DateTime.Now, "001", sdt, "email", phongBan, 0, luongCB, (int)heSo);
+
+                                _nhanSuManager.Them(nv);
+                                count++;
+                            }
+                            else if (cols.Length >= 5)
+                            {
+                                string maNV = cols[0].Trim();
+                                if (_nhanSuManager.TimKiem(maNV) != null) continue;
+
                                 string hoTen = cols[1].Trim();
                                 string loai = cols[2].Trim();
                                 double luongCB = double.Parse(cols[3].Trim());
                                 double heSo = double.Parse(cols[4].Trim());
 
                                 NhanVien nv;
-                                if (loai.ToLower() == "full")
+                                if (loai.ToLower().Contains("full"))
                                     nv = new NhanVienFullTime(maNV, hoTen, DateTime.Now, "001", "090", "a@a.a", "Nhân sự", luongCB, 1.0, heSo);
                                 else
                                     nv = new NhanVienPartTime(maNV, hoTen, DateTime.Now, "001", "090", "a@a.a", "Nhân sự", 0, luongCB, (int)heSo);

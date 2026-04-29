@@ -7,6 +7,7 @@ namespace FaceIDHRM.Integration
     public interface IEarlyCheckoutGateway
     {
         event Action<EarlyCheckoutRequestDto>? RequestUpdated;
+        event Action? AttendanceUpdated;
         Task ConnectAsync();
         Task<List<EarlyCheckoutRequestDto>> GetPendingAsync();
         Task<EarlyCheckoutRequestDto?> GetByIdAsync(string requestId);
